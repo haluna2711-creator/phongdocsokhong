@@ -55,11 +55,12 @@ function parseEntry(entry) {
 }
 
 function fetchByLabel(label) {
-  const url = `${PDS_CONFIG.BLOG_URL}/feeds/posts/default/-/${encodeURIComponent(label)}?alt=json&max-results=${PDS_CONFIG.MAX_RESULTS}&orderby=updated`;
+  // Dùng Vercel API proxy để tránh CORS
+  const url = `/api/feed?label=${encodeURIComponent(label)}&max=${PDS_CONFIG.MAX_RESULTS}`;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 8000);
+  const timer = setTimeout(() => ctrl.abort(), 10000);
   return fetch(url, { signal: ctrl.signal })
-    .then(r => { clearTimeout(timer); return r.json(); })
+    .then(r => { clearTimeout(timer); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
     .then(data => (data.feed?.entry || []).map(parseEntry))
     .catch(err => { clearTimeout(timer); console.warn(`[PDS] Fetch label "${label}":`, err); return []; });
 }
