@@ -16,7 +16,7 @@ let _cachedCardWidth = 0;
 const VIEW_KEY_PREFIX = 'pds_views_';
 
 // ════════════════════════════════════
-// BLOGGER FETCHER
+// SUPABASE FETCHER (thay cho Blogger)
 // ════════════════════════════════════
 const GENRE_MAP = {
   'Trinh thám': 'Trinh thám',
@@ -26,42 +26,34 @@ const GENRE_MAP = {
   'Hệ thống':   'Hệ thống',
 };
 
-function extractThumbnail(entry) {
-  if (entry.media$thumbnail?.url) return entry.media$thumbnail.url.replace(/\/s[0-9]+-c\//, '/s400-c/');
-  const content = entry.content?.$t || '';
-  const match = content.match(/<img[^>]+src=["']([^"']+)["']/i);
-  return match ? match[1] : '';
-}
-
-function extractChapter(entry) {
-  const title = entry.title.$t || '';
-  const m = title.match(/ch[aươ]*\.?\s*(\d+)/i);
-  return m ? 'Ch.' + m[1] : '';
-}
-
-function parseEntry(entry) {
-  const labels  = (entry.category || []).map(c => c.term);
-  const genre   = labels.find(l => GENRE_MAP[l]) || 'Thư Viện Truyện';
-  const links   = entry.link || [];
-  const readUrl = (
-    links.find(l => l.rel === 'alternate' && l.type === 'text/html') ||
-    links.find(l => l.rel === 'alternate') ||
-    links.find(l => l.type === 'text/html')
-  )?.href || '#';
-  const cover   = extractThumbnail(entry);
+function parseNovel(novel) {
+  const labelNames = (novel.novel_labels || []).map(nl => nl.labels?.name).filter(Boolean);
+  const genre   = labelNames.find(l => GENRE_MAP[l]) || labelNames[0] || 'Thư Viện Truyện';
+  const readUrl = `/post/${novel.slug}`;
   const bg      = PDS_CONFIG.GENRE_BG[genre] || PDS_CONFIG.GENRE_BG['default'];
-  const updated = entry.updated?.$t ? new Date(entry.updated.$t).getTime() : Date.now();
-  return { id: readUrl, title: entry.title.$t, genre, cover, readUrl, chapter: extractChapter(entry), label: 'Thư Viện Truyện', bg, updatedAt: updated, blogLabels: labels };
+  const updated = novel.created_at ? new Date(novel.created_at).getTime() : Date.now();
+  return {
+    id: readUrl,
+    title: novel.title,
+    genre,
+    cover: novel.cover_url || '',
+    readUrl,
+    chapter: novel.chapter_count ? `Ch.${novel.chapter_count}` : '',
+    label: 'Thư Viện Truyện',
+    bg,
+    updatedAt: updated,
+    desc: novel.description || '',
+    blogLabels: labelNames,
+  };
 }
 
-function fetchByLabel(label) {
-  const url = `${PDS_CONFIG.BLOG_URL}/feeds/posts/default/-/${encodeURIComponent(label)}?alt=json&max-results=${PDS_CONFIG.MAX_RESULTS}&orderby=updated`;
+function fetchNovels() {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 8000);
-  return fetch(url, { signal: ctrl.signal })
+  return fetch('/api/novels', { signal: ctrl.signal })
     .then(r => { clearTimeout(timer); return r.json(); })
-    .then(data => (data.feed?.entry || []).map(parseEntry))
-    .catch(err => { clearTimeout(timer); console.warn(`[PDS] Fetch label "${label}":`, err); return []; });
+    .then(data => (data.ok && Array.isArray(data.novels)) ? data.novels.map(parseNovel) : [])
+    .catch(err => { clearTimeout(timer); console.warn('[PDS] fetch /api/novels:', err); return []; });
 }
 
 function mergeBooks(existing, fetched) {
@@ -70,10 +62,9 @@ function mergeBooks(existing, fetched) {
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 }
 
-async function loadBloggerBooks() {
+async function loadSupabaseBooks() {
   try {
-    const results = await Promise.all(PDS_CONFIG.TARGET_LABELS.map(fetchByLabel));
-    const fetched = results.flat();
+    const fetched = await fetchNovels();
     if (!fetched.length) return;
     libraryBooks = mergeBooks(libraryBooks, fetched);
     const doRender = () => {
@@ -83,7 +74,7 @@ async function loadBloggerBooks() {
       setTimeout(attachViewTracking, 800);
     };
     'requestIdleCallback' in window ? requestIdleCallback(doRender, { timeout: 1500 }) : setTimeout(doRender, 0);
-  } catch (e) { console.error('[PDS] loadBloggerBooks:', e); }
+  } catch (e) { console.error('[PDS] loadSupabaseBooks:', e); }
 }
 
 // ════════════════════════════════════
