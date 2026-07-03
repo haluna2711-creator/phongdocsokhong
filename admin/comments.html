@@ -154,7 +154,7 @@ async function sendReply(parentId, postUrl, postTitle) {
   } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
 }
 
-(async function () { await guardAdmin(); await load(); })();
+bootAdmin('comments', load);
 </script>
 </body>
 </html>
