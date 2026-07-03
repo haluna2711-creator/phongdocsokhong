@@ -22,10 +22,21 @@ let currentVolume = ''; // Quyển áp dụng cho đợt đăng chương này (v
 const DAY_LABELS = ['CN','T2','T3','T4','T5','T6','T7'];
 
 async function load() {
-  const { novels } = await api('/api/novels');
-  NOVELS = novels;
+  // Nếu URL đã có ?novel=id (vd. bấm từ trang Truyện) thì gọi song song
+  // /api/novels và /api/chapters ngay từ đầu thay vì chờ /api/novels xong
+  // rồi mới gọi /api/chapters — tiết kiệm 1 vòng round-trip mạng.
+  const preselected = selectedNovelId;
+  const [n, ex] = await Promise.all([
+    api('/api/novels'),
+    preselected ? api(`/api/chapters?novel_id=${preselected}`) : Promise.resolve(null),
+  ]);
+  NOVELS = n.novels;
   if (!selectedNovelId && NOVELS.length) selectedNovelId = NOVELS[0].id;
-  if (selectedNovelId) await loadExisting();
+  if (ex) {
+    EXISTING = ex.chapters.sort((a, b) => Number(b.chapter_number) - Number(a.chapter_number));
+  } else if (selectedNovelId) {
+    await loadExisting();
+  }
   render();
 }
 
@@ -329,7 +340,7 @@ async function delChapter(id) {
   } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
 }
 
-(async function () { await guardAdmin(); await load(); })();
+bootAdmin('chapters', load);
 </script>
 </body>
 </html>
