@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="vi" dir="ltr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Phòng Đọc Số 0</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <!-- Auth gate CSS -->
+  <style>
+    #pdsGate{position:fixed;inset:0;z-index:999999;background:#0A0A0A;display:flex;align-items:center;justify-content:center;padding:16px;font-family:'EB Garamond','Be Vietnam Pro',serif;overflow-y:auto}
+    #pdsGate::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(248,219,143,.7) 1px,transparent 1px),radial-gradient(circle,rgba(248,219,143,.35) 1px,transparent 1px),radial-gradient(circle,rgba(248,219,143,.18) 1px,transparent 1px);background-size:180px 180px,310px 310px,470px 470px;background-position:0 0,65px 95px,170px 35px;pointer-events:none;opacity:.5}
+    #pdsBox{position:relative;z-index:1;background:rgba(17,17,17,.97);border:1px solid rgba(248,219,143,.3);border-radius:16px;padding:36px 28px 28px;max-width:420px;width:100%;text-align:center;animation:gateIn .5s cubic-bezier(.4,0,.2,1);box-sizing:border-box}
+    @keyframes gateIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+    #pdsOrb{width:48px;height:48px;border-radius:50%;background:radial-gradient(circle at 38% 35%,#FFD166,#B8860B 60%,#3a1a00);box-shadow:0 0 20px rgba(255,209,102,.5),0 0 40px rgba(255,209,102,.18);margin:0 auto 14px;animation:orbGlow 2.8s ease-in-out infinite}
+    @keyframes orbGlow{0%,100%{box-shadow:0 0 20px rgba(255,209,102,.5),0 0 40px rgba(255,209,102,.18)}50%{box-shadow:0 0 30px rgba(255,209,102,.85),0 0 60px rgba(255,209,102,.3)}}
+    #pdsTitle{font-family:'Vollkorn',serif;font-size:20px;font-weight:700;color:#F8DB8F;letter-spacing:.06em;margin:0 0 6px}
+    #pdsSub{font-size:13px;color:rgba(245,240,232,.48);line-height:1.75;margin:0 0 20px;font-style:italic}
+    .pds-div{height:1px;background:linear-gradient(to right,transparent,rgba(248,219,143,.3),transparent);margin:0 0 20px}
+    .pds-lbl{font-family:'Vollkorn',serif;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#F8DB8F;display:block;text-align:left;margin-bottom:6px}
+    .pds-fld{margin-bottom:14px;text-align:left}
+    .pds-inp{width:100%;background:#1A1A1A;border:1px solid rgba(248,219,143,.3);border-radius:8px;color:#F5F0E8!important;-webkit-text-fill-color:#F5F0E8!important;font-family:'EB Garamond','Be Vietnam Pro',serif;font-size:16px;padding:13px 15px;outline:none;transition:border-color .3s,box-shadow .3s;box-sizing:border-box;-webkit-appearance:none}
+    .pds-inp::placeholder{color:rgba(245,240,232,.28)!important;font-size:14px}
+    .pds-inp:focus{border-color:#F8DB8F;box-shadow:0 0 0 3px rgba(248,219,143,.12)}
+    .pds-inp.err{border-color:#e05252!important}
+    #pdsCodeInp{letter-spacing:.2em;font-family:'Vollkorn',serif;font-size:18px;text-align:center;text-transform:uppercase}
+    .pds-err-msg{font-size:13px;min-height:18px;margin:0 0 4px;font-style:italic;color:#e05252;text-align:left;padding-left:2px;line-height:1.5}
+    .pds-err-msg.ok{color:#6cc07a}.pds-err-msg.info{color:#F8DB8F}
+    .pds-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:15px 20px;background:linear-gradient(135deg,#F8DB8F,#FFD166);color:#0A0A0A;border:none;border-radius:10px;font-family:'Vollkorn',serif;font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:transform .25s,box-shadow .25s,opacity .25s;min-height:50px}
+    .pds-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,209,102,.35)}
+    .pds-btn:disabled{opacity:.5;cursor:not-allowed}
+    .pds-sec{display:none}
+    .pds-note{font-size:12px;color:rgba(245,240,232,.22);margin-top:14px;font-style:italic;line-height:1.7}
+    .pds-stars{display:flex;justify-content:center;gap:8px;margin-top:14px;opacity:.25}
+    .pds-stars span{font-size:10px;color:#F8DB8F}
+    .pds-spin{width:15px;height:15px;border:2px solid rgba(10,10,10,.3);border-top-color:#0A0A0A;border-radius:50%;animation:spin .7s linear infinite;display:none}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #pdsGate.unlocking{animation:gateFade .55s ease forwards}
+    @keyframes gateFade{to{opacity:0;pointer-events:none}}
+    @keyframes pdsShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+    .pds-shake{animation:pdsShake .45s ease}
+  </style>
+</head>
+<body>
+
+<!-- ════════ AUTH GATE ════════ -->
+<div id="pdsGate">
+  <div id="pdsBox">
+    <div id="pdsOrb"></div>
+    <div id="pdsTitle">Phòng Đọc Số 0</div>
+    <div id="pdsSub">Không gian này chỉ dành cho lữ khách được mời.<br/>Nhập email để nhận mã truy cập.</div>
+    <div class="pds-div"></div>
+    <!-- Bước 1 -->
+    <div id="pdsStep1">
+      <div class="pds-fld">
+        <label class="pds-lbl" for="pdsRegEmail">Email của bạn</label>
+        <input class="pds-inp" id="pdsRegEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" maxlength="100" placeholder="your@email.com"/>
+      </div>
+      <div class="pds-err-msg" id="pdsErr"></div>
+      <button class="pds-btn" id="pdsBtnReg" onclick="pdsRegister()" disabled>
+        <div class="pds-spin" id="pdsSpinReg"></div>
+        <svg id="pdsIconReg" fill="none" height="15" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="15"><path d="M22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9"/></svg>
+        <span id="pdsTxtReg">Nhận Mã Truy Cập</span>
+      </button>
+      <div class="pds-note">Mã sẽ được gửi tới email của bạn.<br/>Vui lòng kiểm tra cả mục Thư Rác nếu không thấy.</div>
+    </div>
+    <!-- Bước 2 -->
+    <div class="pds-sec" id="pdsStep2">
+      <div class="pds-fld">
+        <label class="pds-lbl" for="pdsLoginEmail">Email</label>
+        <input class="pds-inp" id="pdsLoginEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" maxlength="100" placeholder="your@email.com"/>
+      </div>
+      <div class="pds-fld">
+        <label class="pds-lbl" for="pdsCodeInp">Mã truy cập</label>
+        <input class="pds-inp" id="pdsCodeInp" type="text" inputmode="text" autocomplete="one-time-code" autocorrect="off" spellcheck="false" maxlength="12" placeholder="XXXXXXXX"/>
+      </div>
+      <div class="pds-err-msg" id="pdsErr2"></div>
+      <button class="pds-btn" id="pdsBtnLogin" onclick="pdsLogin()" disabled>
+        <div class="pds-spin" id="pdsSpinLogin"></div>
+        <svg id="pdsIconLogin" fill="none" height="15" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="15"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>
+        <span id="pdsTxtLogin">Bước Vào</span>
+      </button>
+      <div style="margin-top:14px;text-align:center">
+        <button onclick="pdsBackToReg()" style="background:none;border:none;color:rgba(248,219,143,.45);font-family:Vollkorn,serif;font-size:12px;font-style:italic;cursor:pointer;text-decoration:underline;padding:8px 4px;min-height:40px">Chưa có mã? Quay lại nhận mã mới</button>
+      </div>
+    </div>
+    <div class="pds-stars"><span>✦</span><span>✦</span><span>✦</span><span>✦</span><span>✦</span></div>
+  </div>
+</div>
+
+<!-- ════════ HEADER ════════ -->
+<header id="header">
+  <div class="header-inner">
+    <div class="header-logo-row">
+      <button class="hamburger" id="hamburger" aria-label="Mở menu">
+        <span></span><span></span><span></span>
+      </button>
+      <a class="logo" href="/">
+        <img class="logo-img" src="https://phongdocsokhong.wordpress.com/wp-content/uploads/2026/05/logo-ngang.png" alt="Phòng Đọc Số 0" width="240" height="72" fetchpriority="high" decoding="sync"/>
+      </a>
+      <div class="header-right">
+        <div class="search-bar">
+          <input type="text" placeholder="Tìm truyện..."/>
+          <button aria-label="Tìm kiếm">
+            <svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </button>
+        </div>
+        <button class="mobile-search-icon" id="mobileSearchIcon" aria-label="Tìm kiếm">
+          <svg fill="none" height="17" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="17"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="header-nav-row">
+      <nav>
+        <a href="/">Trang Chủ</a>
+        <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+        <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+        <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<!-- Overlay + Mobile Drawer -->
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-head">
+    <span class="mobile-menu-title">Menu</span>
+    <span class="swipe-hint-label">vuốt để đóng</span>
+  </div>
+  <div class="mobile-search-wrap">
+    <div class="search-bar">
+      <input id="mobileDrawerSearchInput" type="text" placeholder="Tìm truyện" readonly/>
+      <button id="mobileDrawerSearchBtn"><svg fill="none" height="15" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="15"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+    </div>
+  </div>
+  <nav>
+    <a href="/">Trang Chủ</a>
+    <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+    <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+    <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+  </nav>
+  <div class="mobile-menu-footer">
+    <div class="mobile-menu-footer-line"></div>
+    <span class="mobile-menu-footer-gem">✦</span>
+    <div class="mobile-menu-footer-line" style="background:linear-gradient(to left,var(--gold-border),transparent)"></div>
+  </div>
+</div>
+
+<!-- Search Overlay -->
+<div class="search-overlay" id="searchOverlay">
+  <button class="search-overlay-close" id="searchOverlayClose">×</button>
+  <div class="search-overlay-title">✦ Tìm Kiếm Truyện</div>
+  <div class="search-bar">
+    <input id="searchOverlayInput" type="text" placeholder="Nhập tên truyện, thể loại..." autocomplete="off" spellcheck="false"/>
+    <button id="searchOverlayBtn"><svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="18"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+  </div>
+  <div class="search-hint" id="searchHint">Gõ để tìm truyện trong thư viện...</div>
+  <div class="search-results" id="searchResults"></div>
+  <div class="search-not-found" id="searchNotFound">
+    <svg class="search-nf-cosmos" viewBox="0 0 220 160" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient cx="50%" cy="50%" id="nfBg" r="50%"><stop offset="0%" stop-color="#1a0f2e"/><stop offset="100%" stop-color="#0a0a0a"/></radialGradient></defs><ellipse cx="110" cy="80" fill="url(#nfBg)" opacity="0.6" rx="100" ry="70"/><g fill="#F8DB8F" opacity="0.5"><circle cx="30" cy="25" r="1"/><circle cx="80" cy="15" r="0.7"/><circle cx="140" cy="20" r="1.2"/><circle cx="190" cy="35" r="0.8"/><circle cx="55" cy="50" r="0.6"/><circle cx="170" cy="55" r="1"/><circle cx="20" cy="80" r="0.9"/><circle cx="200" cy="90" r="0.7"/></g><circle cx="110" cy="72" fill="none" r="32" stroke="rgba(248,219,143,0.25)" stroke-width="2"/><line stroke="rgba(248,219,143,0.3)" stroke-linecap="round" stroke-width="3" x1="133" x2="152" y1="95" y2="114"/><text fill="rgba(248,219,143,0.2)" font-family="Vollkorn,serif" font-size="28" font-weight="700" text-anchor="middle" x="110" y="82">?</text></svg>
+    <div class="search-nf-title">Không tìm thấy truyện nào</div>
+    <div class="search-nf-sub" id="searchNfQuery"></div>
+    <div class="search-nf-tip">Thử tìm với từ khóa khác hoặc kiểm tra thể loại trong thư viện.</div>
+  </div>
+</div>
+
+<!-- ════════ HERO ════════ -->
+<section class="hero">
+  <div class="banner-slideshow">
+    <!-- Banner 1 -->
+    <div class="banner-slide active" data-banner="0">
+      <div class="banner-slide-placeholder">
+        <svg class="cosmos-bg" preserveAspectRatio="xMidYMid slice" viewBox="0 0 1400 560" xmlns="http://www.w3.org/2000/svg">
+          <defs><radialGradient cx="65%" cy="35%" id="bg1" r="80%"><stop offset="0%" stop-color="#12082a"/><stop offset="50%" stop-color="#080512"/><stop offset="100%" stop-color="#030208"/></radialGradient><radialGradient cx="50%" cy="50%" id="neb1a" r="50%"><stop offset="0%" stop-color="#c8860a" stop-opacity="0.2"/><stop offset="100%" stop-color="#c8860a" stop-opacity="0"/></radialGradient><radialGradient cx="35%" cy="30%" id="planet1" r="65%"><stop offset="0%" stop-color="#F8DB8F"/><stop offset="35%" stop-color="#c8860a"/><stop offset="70%" stop-color="#7a3b10"/><stop offset="100%" stop-color="#3a1505"/></radialGradient><filter id="glow1"><feGaussianBlur result="blur" stdDeviation="3.5"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+          <rect fill="url(#bg1)" height="560" width="1400"/>
+          <ellipse cx="950" cy="220" fill="url(#neb1a)" rx="420" ry="250"/>
+          <ellipse cx="750" cy="330" fill="url(#neb1a)" opacity="0.45" rx="220" ry="150"/>
+          <g fill="#F8DB8F" filter="url(#glow1)"><circle cx="95" cy="52" r="1.3"/><circle cx="310" cy="28" r="1.6"/><circle cx="528" cy="45" r="1.2"/><circle cx="768" cy="35" r="1.4"/><circle cx="888" cy="62" r="1.0"/><circle cx="1120" cy="42" r="1.5"/><circle cx="150" cy="172" r="1.0"/><circle cx="388" cy="195" r="1.3"/><circle cx="628" cy="182" r="1.1"/><circle cx="868" cy="188" r="1.2"/><circle cx="1108" cy="192" r="1.0"/><circle cx="70" cy="310" r="1.1"/><circle cx="312" cy="292" r="1.3"/><circle cx="552" cy="305" r="1.0"/><circle cx="792" cy="318" r="1.2"/><circle cx="1032" cy="308" r="1.1"/><circle cx="1272" cy="325" r="1.4"/><circle cx="110" cy="452" r="0.9"/><circle cx="385" cy="435" r="0.7"/><circle cx="658" cy="445" r="0.8"/><circle cx="932" cy="458" r="0.7"/><circle cx="1195" cy="448" r="0.9"/></g>
+          <circle cx="1100" cy="230" fill="url(#planet1)" r="82" opacity="0.85"/>
+          <circle cx="1100" cy="230" fill="none" r="85" stroke="#F8DB8F" stroke-opacity="0.08" stroke-width="8"/>
+          <ellipse cx="1100" cy="230" fill="none" rx="120" ry="20" stroke="#F8DB8F" stroke-opacity="0.3" stroke-width="2.5" transform="rotate(-20,1100,230)"/>
+        </svg>
+      </div>
+    </div>
+    <!-- Banner 2 -->
+    <div class="banner-slide" data-banner="1">
+      <div class="banner-slide-placeholder">
+        <svg class="cosmos-bg" preserveAspectRatio="xMidYMid slice" viewBox="0 0 1400 560" xmlns="http://www.w3.org/2000/svg">
+          <defs><radialGradient cx="62%" cy="38%" id="bg2" r="72%"><stop offset="0%" stop-color="#1e0a38"/><stop offset="100%" stop-color="#030108"/></radialGradient><radialGradient cx="50%" cy="50%" id="neb2" r="50%"><stop offset="0%" stop-color="#8b34c8" stop-opacity=".22"/><stop offset="100%" stop-color="#8b34c8" stop-opacity="0"/></radialGradient><radialGradient cx="32%" cy="28%" id="moon2" r="65%"><stop offset="0%" stop-color="#2c1850"/><stop offset="100%" stop-color="#060412"/></radialGradient></defs>
+          <rect fill="url(#bg2)" height="560" width="1400"/>
+          <ellipse cx="940" cy="205" fill="url(#neb2)" rx="410" ry="228"/>
+          <g fill="#F8DB8F"><circle cx="118" cy="46" opacity=".88" r="1.4"/><circle cx="480" cy="24" opacity=".82" r="1.15"/><circle cx="750" cy="112" opacity=".92" r="1.65"/><circle cx="982" cy="90" opacity=".80" r="1.2"/><circle cx="1252" cy="30" opacity=".88" r="1.45"/><circle cx="402" cy="202" opacity=".82" r="1.35"/><circle cx="952" cy="175" opacity=".88" r="1.55"/><circle cx="542" cy="272" opacity=".82" r="1.32"/><circle cx="1022" cy="286" opacity=".82" r="1.42"/><circle cx="230" cy="462" opacity=".75" r="1.22"/><circle cx="772" cy="472" opacity=".75" r="1.32"/><circle cx="1268" cy="460" opacity=".75" r="1.42"/></g>
+          <circle cx="1152" cy="168" fill="url(#moon2)" r="74"/>
+          <circle cx="1134" cy="152" fill="#1e0d38" opacity=".72" r="21"/>
+          <circle cx="1163" cy="183" fill="#1a0a2e" opacity=".65" r="12"/>
+          <circle cx="1152" cy="168" fill="none" r="76" stroke="#9b4dca" stroke-opacity=".18" stroke-width="8"/>
+        </svg>
+      </div>
+    </div>
+    <!-- Banner 3 -->
+    <div class="banner-slide" data-banner="2">
+      <div class="banner-slide-placeholder">
+        <svg class="cosmos-bg" preserveAspectRatio="xMidYMid slice" viewBox="0 0 1400 560" xmlns="http://www.w3.org/2000/svg">
+          <defs><radialGradient cx="30%" cy="60%" id="bg3" r="80%"><stop offset="0%" stop-color="#0a1520"/><stop offset="100%" stop-color="#030609"/></radialGradient><radialGradient cx="50%" cy="50%" id="neb3" r="50%"><stop offset="0%" stop-color="#1a6b8a" stop-opacity="0.2"/><stop offset="100%" stop-color="#1a6b8a" stop-opacity="0"/></radialGradient><radialGradient cx="38%" cy="35%" id="planet3" r="60%"><stop offset="0%" stop-color="#2a4a6a"/><stop offset="100%" stop-color="#060e18"/></radialGradient></defs>
+          <rect fill="url(#bg3)" height="560" width="1400"/>
+          <ellipse cx="1050" cy="250" fill="url(#neb3)" rx="350" ry="200"/>
+          <g fill="#F8DB8F"><circle cx="80" cy="60" r="1.2"/><circle cx="360" cy="75" r="1.5"/><circle cx="620" cy="90" r="1.1"/><circle cx="860" cy="65" r="1.3"/><circle cx="1200" cy="50" r="1.4"/><circle cx="280" cy="140" r="1.1"/><circle cx="560" cy="160" r="1.2"/><circle cx="820" cy="185" r="1.0"/><circle cx="1060" cy="190" r="1.3"/><circle cx="60" cy="300" r="1.0"/><circle cx="320" cy="280" r="1.2"/><circle cx="580" cy="290" r="1.1"/><circle cx="840" cy="310" r="1.3"/><circle cx="1100" cy="300" r="1.0"/><circle cx="100" cy="440" r="0.9"/><circle cx="510" cy="460" r="1.3"/><circle cx="920" cy="445" r="0.7"/><circle cx="1290" cy="465" r="1.1"/></g>
+          <circle cx="1080" cy="240" fill="url(#planet3)" opacity="0.9" r="90"/>
+          <ellipse cx="1080" cy="240" fill="none" rx="135" ry="22" stroke="#F8DB8F" stroke-opacity="0.35" stroke-width="2" transform="rotate(-15,1080,240)"/>
+          <circle cx="1080" cy="240" fill="none" r="92" stroke="#4aa8d8" stroke-opacity="0.12" stroke-width="6"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Featured Story -->
+  <div class="featured-wrapper">
+    <div class="featured-cover-track">
+      <div class="featured-cover-slider" id="featuredSlider">
+        <div class="featured-slide active" data-index="0"><div class="featured-cover-placeholder"></div><div class="featured-slide-overlay"><a class="btn-read-now" href="#" id="coverLink0">ĐỌC NGAY</a></div></div>
+        <div class="featured-slide" data-index="1"><div class="featured-cover-placeholder" style="background:linear-gradient(145deg,#1a1220,#2a1a30)"></div><div class="featured-slide-overlay"><a class="btn-read-now" href="#" id="coverLink1">ĐỌC NGAY</a></div></div>
+        <div class="featured-slide" data-index="2"><div class="featured-cover-placeholder" style="background:linear-gradient(145deg,#0f1a20,#1a2a30)"></div><div class="featured-slide-overlay"><a class="btn-read-now" href="#" id="coverLink2">ĐỌC NGAY</a></div></div>
+      </div>
+    </div>
+    <div class="featured-info-box" id="featuredInfoBox" style="opacity:0;transition:opacity 0.4s ease;">
+      <div class="featured-tag">✦ Nổi bật</div>
+      <div class="featured-title" id="featuredTitle"></div>
+      <div class="shimmer-line"></div>
+      <div class="featured-desc" id="featuredDesc"></div>
+      <div class="featured-dots" id="featuredDots">
+        <div class="featured-dot active" data-dot="0"></div>
+        <div class="featured-dot" data-dot="1"></div>
+        <div class="featured-dot" data-dot="2"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ MAIN CONTENT ════════ -->
+<main class="main-content">
+  <section class="starry-section" id="librarySection">
+    <div class="section-header">
+      <div class="section-title">✦ Thư Viện Truyện</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="library-filter-bar" id="libraryFilterBar"></div>
+    <div class="starry-carousel-wrapper" id="libCarouselWrapper">
+      <div class="orb-track">
+        <div class="orb-track-dot"></div>
+        <div class="orb-track-dot"></div>
+        <div class="orb-center"><div class="orb-center-inner"></div></div>
+        <div class="orb-track-dot"></div>
+        <div class="orb-track-dot"></div>
+      </div>
+      <button class="carousel-btn carousel-btn-prev" id="carouselPrev" aria-label="Trước"><svg fill="none" height="16" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="16"><path d="m15 18-6-6 6-6"/></svg></button>
+      <button class="carousel-btn carousel-btn-next" id="carouselNext" aria-label="Tiếp"><svg fill="none" height="16" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="16"><path d="m9 18 6-6-6-6"/></svg></button>
+      <div class="starry-cards-outer" id="starryOuter">
+        <div class="starry-cards" id="starryCards"></div>
+      </div>
+      <div class="library-empty" id="libraryEmpty">
+        <svg fill="none" height="48" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" width="48"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <div class="library-empty-text" id="libraryEmptyText">Chưa có truyện nào trong thể loại này.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ════════ GALAXY DIVIDER ════════ -->
+<div class="galaxy-divider" id="galaxyDivider">
+  <canvas id="galaxyCanvas"></canvas>
+  <div class="galaxy-divider-overlay"></div>
+</div>
+
+<!-- ════════ BOTTOM SECTION ════════ -->
+<div class="bottom-section">
+  <!-- Coverflow -->
+  <div class="new-update-panel">
+    <div class="new-update-title">✦ Truyện Mới Cập Nhật</div>
+    <div class="coverflow-wrapper" id="cfWrapper">
+      <div class="coverflow-track" id="cfTrack"></div>
+    </div>
+    <div class="coverflow-nav">
+      <button class="cf-nav-btn" id="cfPrev" aria-label="Trước"><svg fill="none" height="14" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="14"><path d="m15 18-6-6 6-6"/></svg></button>
+      <div class="cf-dots"></div>
+      <button class="cf-nav-btn" id="cfNext" aria-label="Tiếp"><svg fill="none" height="14" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="14"><path d="m9 18 6-6-6-6"/></svg></button>
+    </div>
+  </div>
+
+  <!-- Follow Widget -->
+  <aside class="follow-widget" id="followWidget">
+    <div class="follow-orb"></div>
+    <div class="follow-heading">Mời Lữ Khách Gia Nhập</div>
+    <div class="follow-heading" style="font-size:13px;font-weight:400;color:var(--gold-light);margin-bottom:8px;">Hành Trình</div>
+    <div class="follow-sub">Theo dõi Phòng Đọc Số 0 để không bỏ lỡ bất kỳ chương truyện mới nào trên hành trình khám phá vũ trụ gay go.</div>
+    <div class="follow-divider"></div>
+    <form id="followItForm" action="https://api.follow.it/subscription-form/aTRFdXlTY2JkbGJKQ2J5bHArd1RBaVpLYWx6QnN2UDFyUk9BbktnOHdhMHcwQW45cy9qUEJmdmd5MDJqOEp4YTVYZnlxclExcGI5a3ZmQ21vdWN4MDFtWXZ4OEFPSW4zV1JlZ0VEbFlJRzBaUmF3WEk2R2xYQTN0YS83alpDb3N8bHpVd2VKa1lTbFRCMGgyR2xYWk5zUUhGQW94a2tUSEhMN3o4SHpnNnFVTT0=/8" method="post" target="_blank" style="width:100%;display:none;flex-direction:column;gap:10px;margin-bottom:14px;">
+      <input id="followEmailInput" name="email" type="email" required placeholder="Nhập email của bạn..." style="background:var(--black-3);border:1px solid var(--gold-border);border-radius:var(--radius);color:var(--white);font-family:'EB Garamond',serif;font-size:15px;padding:11px 14px;outline:none;width:100%;"/>
+      <button type="submit" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px 20px;background:linear-gradient(135deg,var(--gold-light),var(--gold-hover));color:var(--black);border:none;border-radius:8px;font-family:'Vollkorn',serif;font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;">
+        <svg fill="none" height="14" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="14"><path d="M22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9"/></svg>Xác Nhận
+      </button>
+      <button type="button" onclick="followCancel()" style="background:transparent;border:1px solid var(--gold-border);color:var(--text-muted);border-radius:8px;padding:8px;font-family:'Vollkorn',serif;font-size:11px;letter-spacing:0.08em;cursor:pointer;">Huỷ</button>
+    </form>
+    <button class="btn-follow" id="followBtn" onclick="followConnect()">
+      <svg fill="none" height="16" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="16"><path d="M12 5v14M5 12h14"/></svg>
+      <span id="followBtnText">Kết Nối</span>
+    </button>
+    <p class="follow-note" id="followNote">Nhận thông báo chương mới ngay khi xuất hiện</p>
+    <div class="follow-stars"><span>✦</span><span>✦</span><span>✦</span><span>✦</span><span>✦</span></div>
+  </aside>
+</div>
+
+<!-- ════════ FOOTER ════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">✦ Phòng Đọc Số 0 ✦</div>
+    <div class="footer-links">
+      <a href="/p/lien-he">Liên Hệ</a>
+      <a href="/p/quy-dinh">Quy Định</a>
+    </div>
+    <div class="footer-copy">© <span id="footerYearPds">2026</span> Phòng Đọc Số 0 · Thiếu Gay Hồn Bay Một Nửa
+      <span style="display:block;">Cảm ơn chủ sốp Noisy Team đã hướng dẫn tui cook web này</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Mars floating button -->
+<div id="marsPlanet" aria-label="Mở menu">
+  <svg id="marsSvg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient cx="38%" cy="35%" id="marsGrad" r="60%"><stop offset="0%" stop-color="#FFD166"/><stop offset="40%" stop-color="#F8A84B"/><stop offset="100%" stop-color="#7A3B10"/></radialGradient><clipPath id="marsClip"><circle cx="32" cy="32" r="26"/></clipPath></defs><circle cx="32" cy="32" fill="url(#marsGrad)" r="26"/><ellipse cx="32" cy="32" fill="none" rx="33" ry="8" stroke="rgba(248,219,143,0.45)" stroke-width="2.5" transform="rotate(-18,32,32)"/></svg>
+  <div id="marsPulse"></div>
+  <div id="marsTooltip">Menu</div>
+</div>
+
+<!-- Back to top -->
+<button id="btt" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Về đầu trang">
+  <div class="btt-ring"></div>
+  <svg class="btt-icon" fill="none" height="16" viewBox="0 0 16 16" width="16"><line stroke="#F8DB8F" stroke-linecap="round" stroke-width="1.8" x1="8" x2="8" y1="12" y2="4"/><polyline fill="none" points="4.5,7 8,3.5 11.5,7" stroke="#F8DB8F" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/></svg>
+  <span class="btt-label">TOP</span>
+</button>
+
+<!-- Scripts — thứ tự quan trọng -->
+<script src="/js/config.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/app.js"></script>
+
+</body>
+</html>
