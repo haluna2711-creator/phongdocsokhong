@@ -658,9 +658,16 @@ function renderStory(text) {
   container.appendChild(frag);
 }
 
-/* ─── Lấy JSON, ném lỗi nếu thất bại ─── */
+/* ─── Lấy JSON, ném lỗi nếu thất bại ───
+   credentials:'omit' — trang đọc là công khai, KHÔNG được gửi kèm cookie phiên
+   admin (nếu chủ trang đang đăng nhập /admin trên cùng trình duyệt). Thiếu dòng
+   này thì khi chủ trang vừa vào /admin xong rồi mở trang đọc, server sẽ tưởng
+   đây là request admin và bỏ qua bộ lọc status='published' — khiến chương
+   "Nháp"/"Đã lên lịch" hiện ra như thể đã đăng (chỉ với chủ trang, nhưng dễ
+   gây hiểu nhầm là lịch đăng bị hỏng, và rò rỉ nội dung chưa đăng nếu share link
+   lúc đó). */
 async function fetchJSON(url, signal) {
-  const res = await fetch(url, { signal });
+  const res = await fetch(url, { signal, credentials: 'omit' });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
