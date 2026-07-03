@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Bình luận — Admin</title>
+<link rel="stylesheet" href="/admin/admin.css"/>
+<style>
+  .thread-group{margin-bottom:18px}
+  .thread-group h3{font-size:14px;color:var(--white);margin-bottom:2px}
+  .thread-group .thread-sub{font-size:12px;color:var(--muted-2);margin-bottom:10px}
+  .thread-list{display:flex;flex-direction:column;gap:10px}
+  .c-item{border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:rgba(255,255,255,.015)}
+  .c-item .c-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  .c-item .c-name{font-weight:600;color:var(--gold);font-size:13px}
+  .c-item .c-time{font-size:11px;color:var(--muted-2)}
+  .c-item .c-admin-badge{font-size:10px;background:var(--gold);color:#0A0A0A;padding:1px 7px;border-radius:10px;font-weight:700;text-transform:uppercase}
+  .c-item .c-body{font-size:13.5px;color:var(--muted);line-height:1.6;white-space:pre-line}
+  .c-item .c-actions{margin-top:8px;display:flex;gap:8px}
+  .c-replies{margin-top:10px;margin-left:18px;padding-left:12px;border-left:2px solid var(--border-med);display:flex;flex-direction:column;gap:8px}
+  .reply-inline{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .reply-inline textarea{min-height:60px}
+  .reply-inline .row{display:flex;gap:8px;justify-content:flex-end}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="/admin/admin-common.js"></script>
+<script>
+let GROUPS = [];      // [{postUrl, postTitle, roots: [...]}]
+let openReplyId = null;
+
+function buildTree(items) {
+  const byId = new Map();
+  items.forEach(c => byId.set(String(c.id), { ...c, replies: [] }));
+  const roots = [];
+  byId.forEach(c => {
+    const pid = c.parentId ? String(c.parentId) : null;
+    if (pid && byId.has(pid)) byId.get(pid).replies.push(c);
+    else roots.push(c);
+  });
+  roots.sort((a, b) => b.ts - a.ts);
+  roots.forEach(r => r.replies.sort((a, b) => a.ts - b.ts));
+  return roots;
+}
+
+function chapterHref(postUrl) {
+  // postUrl có dạng "novel-slug/chapter-id"
+  const parts = String(postUrl || '').split('/');
+  if (parts.length < 2) return '#';
+  return `/doc/${parts[0]}/${parts.slice(1).join('/')}`;
+}
+
+async function load() {
+  const { comments } = await api('/api/comments');
+  const byPost = new Map();
+  comments.filter(c => !c.deleted).forEach(c => {
+    if (!byPost.has(c.postUrl)) byPost.set(c.postUrl, { postUrl: c.postUrl, postTitle: c.postTitle, items: [] });
+    byPost.get(c.postUrl).items.push(c);
+  });
+  GROUPS = Array.from(byPost.values())
+    .map(g => ({ ...g, roots: buildTree(g.items) }))
+    .sort((a, b) => {
+      const at = Math.max(...a.items.map(i => i.ts));
+      const bt = Math.max(...b.items.map(i => i.ts));
+      return bt - at;
+    });
+  render();
+}
+
+function fmtTime(ts) {
+  return new Date(Number(ts)).toLocaleString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function renderComment(c, postUrl, postTitle, isReply) {
+  const badge = c.isAdmin ? '<span class="c-admin-badge">Quản trị viên</span>' : '';
+  const replyBtn = isReply ? '' : `<button class="btn btn-sm" data-reply="${c.id}">Trả lời</button>`;
+  const delBtn = `<button class="btn btn-sm btn-danger" data-del="${c.id}">Xoá</button>`;
+  const replyForm = (!isReply && openReplyId === String(c.id)) ? `
+    <div class="reply-inline">
+      <textarea placeholder="Nội dung trả lời..." id="replyBody-${c.id}"></textarea>
+      <div class="row">
+        <button class="btn btn-sm" data-cancel-reply="${c.id}">Huỷ</button>
+        <button class="btn btn-sm btn-gold" data-send-reply="${c.id}" data-post-url="${escHtml(postUrl)}" data-post-title="${escHtml(postTitle)}">Gửi trả lời</button>
+      </div>
+    </div>` : '';
+  const repliesHtml = (c.replies && c.replies.length)
+    ? `<div class="c-replies">${c.replies.map(r => renderComment(r, postUrl, postTitle, true)).join('')}</div>`
+    : '';
+
+  return `
+    <div class="c-item">
+      <div class="c-head">
+        <span class="c-name">${escHtml(c.name)}</span>
+        ${badge}
+        <span class="c-time">${fmtTime(c.ts)}</span>
+      </div>
+      <div class="c-body">${escHtml(c.body)}</div>
+      <div class="c-actions">${replyBtn}${delBtn}</div>
+      ${replyForm}
+      ${repliesHtml}
+    </div>`;
+}
+
+function render() {
+  const totalComments = GROUPS.reduce((n, g) => n + g.items.length, 0);
+  mountShell('comments', `
+    <div class="page-head">
+      <div><h1>Bình luận</h1><p>Quản lý bình luận theo từng chương — xoá hoặc trả lời với tư cách quản trị viên.</p></div>
+    </div>
+    ${GROUPS.length ? GROUPS.map(g => `
+      <div class="card thread-group">
+        <h3><a href="${chapterHref(g.postUrl)}" target="_blank" rel="noopener">${escHtml(g.postTitle || g.postUrl)}</a></h3>
+        <div class="thread-sub mono">${escHtml(g.postUrl)} · ${g.items.length} bình luận</div>
+        <div class="thread-list">
+          ${g.roots.map(c => renderComment(c, g.postUrl, g.postTitle, false)).join('')}
+        </div>
+      </div>
+    `).join('') : `<div class="card"><div class="empty">Chưa có bình luận nào (${totalComments}).</div></div>`}
+  `);
+
+  document.querySelectorAll('[data-reply]').forEach(btn => {
+    btn.addEventListener('click', () => { openReplyId = openReplyId === btn.dataset.reply ? null : btn.dataset.reply; render(); });
+  });
+  document.querySelectorAll('[data-cancel-reply]').forEach(btn => {
+    btn.addEventListener('click', () => { openReplyId = null; render(); });
+  });
+  document.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', () => delComment(btn.dataset.del));
+  });
+  document.querySelectorAll('[data-send-reply]').forEach(btn => {
+    btn.addEventListener('click', () => sendReply(btn.dataset.sendReply, btn.dataset.postUrl, btn.dataset.postTitle));
+  });
+}
+
+async function delComment(id) {
+  if (!confirm('Xoá bình luận này? (Các trả lời bên dưới vẫn giữ nguyên)')) return;
+  try {
+    await api(`/api/comments?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    toast('Đã xoá bình luận', 'ok');
+    await load();
+  } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+}
+
+async function sendReply(parentId, postUrl, postTitle) {
+  const ta = document.getElementById('replyBody-' + parentId);
+  const body = (ta?.value || '').trim();
+  if (!body) { ta?.focus(); return; }
+  try {
+    await api('/api/comments', { method: 'POST', body: { postUrl, postTitle, parentId, body } });
+    toast('Đã gửi trả lời', 'ok');
+    openReplyId = null;
+    await load();
+  } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+}
+
+(async function () { await guardAdmin(); await load(); })();
+</script>
+</body>
+</html>
