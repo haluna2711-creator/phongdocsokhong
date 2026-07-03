@@ -52,7 +52,7 @@ function chapterHref(postUrl) {
 }
 
 async function load() {
-  const { comments } = await api('/api/admin-comments');
+  const { comments } = await api('/api/comments');
   const byPost = new Map();
   comments.filter(c => !c.deleted).forEach(c => {
     if (!byPost.has(c.postUrl)) byPost.set(c.postUrl, { postUrl: c.postUrl, postTitle: c.postTitle, items: [] });
@@ -136,7 +136,7 @@ function render() {
 async function delComment(id) {
   if (!confirm('Xoá bình luận này? (Các trả lời bên dưới vẫn giữ nguyên)')) return;
   try {
-    await api(`/api/admin-comments?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await api(`/api/comments?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     toast('Đã xoá bình luận', 'ok');
     await load();
   } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
@@ -147,7 +147,7 @@ async function sendReply(parentId, postUrl, postTitle) {
   const body = (ta?.value || '').trim();
   if (!body) { ta?.focus(); return; }
   try {
-    await api('/api/admin-comments', { method: 'POST', body: { postUrl, postTitle, parentId, body } });
+    await api('/api/comments', { method: 'POST', body: { postUrl, postTitle, parentId, body } });
     toast('Đã gửi trả lời', 'ok');
     openReplyId = null;
     await load();
