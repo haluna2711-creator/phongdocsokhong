@@ -67,7 +67,10 @@ function parseNovel(novel) {
 function fetchNovels() {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 8000);
-  return fetch('/api/novels', { signal: ctrl.signal })
+  // credentials:'omit': trang chủ là công khai, không được vô tình gửi kèm cookie
+  // phiên admin (nếu chủ trang đang đăng nhập /admin cùng trình duyệt) — nếu không
+  // server sẽ tưởng đây là request admin và trả về cả chương "Nháp"/"Đã lên lịch".
+  return fetch('/api/novels', { signal: ctrl.signal, credentials: 'omit' })
     .then(r => { clearTimeout(timer); return r.json(); })
     .then(data => (data.ok && Array.isArray(data.novels)) ? data.novels.map(parseNovel) : [])
     .catch(err => { clearTimeout(timer); console.warn('[PDS] fetch /api/novels:', err); return []; });
