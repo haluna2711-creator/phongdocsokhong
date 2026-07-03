@@ -119,7 +119,7 @@ window.initReactionsComments = function initReactionsComments() {
 
   function renderComment(c, isReply) {
     const sid = safeId(c.id);
-    const adminBadge = c.isAdmin ? '<span class="comment-admin-badge">Quản trị viên</span>' : '';
+    const adminBadge = c.isAdmin ? '<span class="comment-admin-badge">Quản thư</span>' : '';
     const replyBtn = isReply ? '' : `<div class="comment-actions"><button class="comment-reply-btn" data-reply="${sid}">Trả lời</button></div>`;
     const replyForm = (!isReply && openReplyId === String(c.id)) ? `
       <form class="reply-form" data-reply-form="${sid}">
