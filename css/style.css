@@ -562,7 +562,6 @@ footer { border-top: 1px solid var(--gold-border); padding: 40px 24px 24px; text
   .cf-card.pos-right2 { transform: translateX(285px) rotateY(-38deg) scale(0.58) translateZ(-120px); opacity: 0.2; }
   .galaxy-divider { height: 80px; }
   #btt { bottom: 90px !important; right: 18px !important; }
-  #marsPlanet { display: block; }
   .orb-center-inner { animation: none; }
   .follow-orb { animation: none; }
   .follow-orb::after { animation: none; }
