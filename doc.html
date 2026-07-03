@@ -11,7 +11,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Open+Sans:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400&family=Open+Sans:wght@400&family=Playfair+Display:wght@400&family=Montserrat:wght@400&display=swap" rel="stylesheet"></noscript>
 
+<!-- Header/Footer dùng chung với trang chủ -->
+<link rel="stylesheet" href="/css/style.css"/>
+
 <style>
+/* Tắt hiệu ứng noise-grain toàn trang của site style.css trong khu vực đọc để giữ mặt đọc sạch, không ảnh hưởng nền sáng/vàng */
+body::before{display:none !important}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
 
@@ -184,6 +189,47 @@ body {
   font-family: 'Be Vietnam Pro', sans-serif; font-style: italic; color: var(--text-muted); text-align: center;
 }
 
+/* ─── REACTION + COMMENT (theo chương, đổi màu theo theme đọc) ─── */
+.novel-reactions { padding: 0 var(--pad-h) 8px; }
+.reactions-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.reaction-btn {
+  display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 20px; cursor: pointer;
+  background: var(--accent-soft); border: 1px solid var(--border-med);
+  font-family: 'Be Vietnam Pro', sans-serif; font-size: 13px; color: var(--text-muted);
+  transition: background .18s, border-color .18s, transform .18s; -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.reaction-btn:hover { border-color: var(--accent); }
+.reaction-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.reaction-btn:active { transform: scale(.94); }
+.reaction-emoji { font-size: 15px; line-height: 1; }
+.reaction-count { font-variant-numeric: tabular-nums; min-width: 8px; text-align: center; }
+
+.novel-comments { padding: 20px var(--pad-h) 8px; border-top: 0.5px solid var(--border); }
+.novel-comments h2 {
+  font-family: 'Lora', Georgia, serif; font-weight: 400; font-size: 16px; color: var(--text); margin-bottom: 14px;
+}
+.comment-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.comment-form input, .comment-form textarea {
+  background: var(--bg-bar); border: 1px solid var(--border-med); border-radius: 8px; color: var(--text);
+  font-family: 'Be Vietnam Pro', sans-serif; font-size: 14px; padding: 10px 12px; outline: none; resize: vertical;
+  transition: border-color .18s;
+}
+.comment-form textarea { min-height: 74px; line-height: 1.6; }
+.comment-form input:focus, .comment-form textarea:focus { border-color: var(--accent); }
+.comment-form button {
+  align-self: flex-end; padding: 9px 20px; background: var(--accent); color: #0A0A0A; border: none; border-radius: 6px;
+  cursor: pointer; font-family: 'Be Vietnam Pro', sans-serif; font-size: 11px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; transition: transform .18s, opacity .18s;
+}
+.comment-form button:hover { transform: translateY(-1px); }
+.comment-form button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.comment-list { display: flex; flex-direction: column; gap: 12px; }
+.comment-item { padding: 12px 14px; border-radius: 8px; background: var(--accent-soft); border: 1px solid var(--border); }
+.comment-item-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+.comment-author { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 600; color: var(--accent); font-size: 12.5px; }
+.comment-time { font-size: 11px; color: var(--text-light); font-style: italic; }
+.comment-body { font-family: 'Be Vietnam Pro', sans-serif; font-size: 14px; line-height: 1.7; color: var(--text-muted); white-space: pre-line; }
+
 #bottom-nav {
   display: flex; border-top: 0.5px solid var(--border-med); background: var(--bg-bar);
   margin-top: auto; transition: background 0.3s; font-family: 'Be Vietnam Pro', sans-serif;
@@ -219,6 +265,81 @@ body {
 </head>
 <body>
 
+<!-- ════════ HEADER (dùng chung với trang chủ) ════════ -->
+<header id="header">
+  <div class="header-inner">
+    <div class="header-logo-row">
+      <button class="hamburger" id="hamburger" aria-label="Mở menu">
+        <span></span><span></span><span></span>
+      </button>
+      <a class="logo" href="/">
+        <img class="logo-img" src="https://phongdocsokhong.wordpress.com/wp-content/uploads/2026/05/logo-ngang.png" alt="Phòng Đọc Số 0" width="240" height="72" decoding="async"/>
+      </a>
+      <div class="header-right">
+        <div class="search-bar">
+          <input type="text" placeholder="Tìm truyện..."/>
+          <button aria-label="Tìm kiếm">
+            <svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </button>
+        </div>
+        <button class="mobile-search-icon" id="mobileSearchIcon" aria-label="Tìm kiếm">
+          <svg fill="none" height="17" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="17"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="header-nav-row">
+      <nav>
+        <a href="/">Trang Chủ</a>
+        <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+        <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+        <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-head">
+    <span class="mobile-menu-title">Menu</span>
+    <span class="swipe-hint-label">vuốt để đóng</span>
+  </div>
+  <div class="mobile-search-wrap">
+    <div class="search-bar">
+      <input id="mobileDrawerSearchInput" type="text" placeholder="Tìm truyện" readonly/>
+      <button id="mobileDrawerSearchBtn"><svg fill="none" height="15" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="15"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+    </div>
+  </div>
+  <nav>
+    <a href="/">Trang Chủ</a>
+    <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+    <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+    <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+  </nav>
+  <div class="mobile-menu-footer">
+    <div class="mobile-menu-footer-line"></div>
+    <span class="mobile-menu-footer-gem">✦</span>
+    <div class="mobile-menu-footer-line" style="background:linear-gradient(to left,var(--gold-border),transparent)"></div>
+  </div>
+</div>
+
+<div class="search-overlay" id="searchOverlay">
+  <button class="search-overlay-close" id="searchOverlayClose">×</button>
+  <div class="search-overlay-title">✦ Tìm Kiếm Truyện</div>
+  <div class="search-bar">
+    <input id="searchOverlayInput" type="text" placeholder="Nhập tên truyện, thể loại..." autocomplete="off" spellcheck="false"/>
+    <button id="searchOverlayBtn"><svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="18"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+  </div>
+  <div class="search-hint" id="searchHint">Gõ để tìm truyện trong thư viện...</div>
+  <div class="search-results" id="searchResults"></div>
+  <div class="search-not-found" id="searchNotFound">
+    <div class="search-nf-title">Không tìm thấy truyện nào</div>
+    <div class="search-nf-sub" id="searchNfQuery"></div>
+    <div class="search-nf-tip">Thử tìm với từ khóa khác hoặc kiểm tra thể loại trong thư viện.</div>
+  </div>
+</div>
+
 <div id="page-wrap">
 <div id="reader">
 
@@ -229,6 +350,20 @@ body {
   </header>
 
   <main id="story-content" aria-live="polite"><p class="loading-msg">Đang tải nội dung chương...</p></main>
+
+  <!-- ════════ REACTION + BÌNH LUẬN (theo chương) ════════ -->
+  <div class="novel-reactions" id="novelReactions">
+    <div class="reactions-row" id="reactionsRow"></div>
+  </div>
+  <div class="novel-comments" id="novelComments">
+    <h2>✦ Bình luận chương này</h2>
+    <form class="comment-form" id="commentForm">
+      <input type="text" id="commentName" placeholder="Tên hiển thị..." maxlength="40" required/>
+      <textarea id="commentContent" placeholder="Viết bình luận..." maxlength="1000" required></textarea>
+      <button type="submit" id="commentSubmitBtn">Gửi bình luận</button>
+    </form>
+    <div class="comment-list" id="commentList"><div class="empty-msg">Đang tải bình luận...</div></div>
+  </div>
 
   <div id="reader-footer">
     <div id="toc-panel" role="region" aria-label="Mục lục truyện">
@@ -281,6 +416,36 @@ body {
   </div>
 
 </div></div>
+
+<!-- ════════ FOOTER (dùng chung với trang chủ) ════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">✦ Phòng Đọc Số 0 ✦</div>
+    <div class="footer-links">
+      <a href="/p/lien-he">Liên Hệ</a>
+      <a href="/p/quy-dinh">Quy Định</a>
+    </div>
+    <div class="footer-copy">© <span id="footerYearPds">2026</span> Phòng Đọc Số 0 · Thiếu Gay Hồn Bay Một Nửa
+      <span style="display:block;">Cảm ơn chủ sốp Noisy Team đã hướng dẫn tui cook web này</span>
+    </div>
+  </div>
+</footer>
+
+<div id="marsPlanet" aria-label="Mở menu">
+  <svg id="marsSvg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient cx="38%" cy="35%" id="marsGrad" r="60%"><stop offset="0%" stop-color="#FFD166"/><stop offset="40%" stop-color="#F8A84B"/><stop offset="100%" stop-color="#7A3B10"/></radialGradient></defs><circle cx="32" cy="32" fill="url(#marsGrad)" r="26"/><ellipse cx="32" cy="32" fill="none" rx="33" ry="8" stroke="rgba(248,219,143,0.45)" stroke-width="2.5" transform="rotate(-18,32,32)"/></svg>
+  <div id="marsPulse"></div>
+  <div id="marsTooltip">Menu</div>
+</div>
+
+<button id="btt" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Về đầu trang">
+  <div class="btt-ring"></div>
+  <svg class="btt-icon" fill="none" height="16" viewBox="0 0 16 16" width="16"><line stroke="#F8DB8F" stroke-linecap="round" stroke-width="1.8" x1="8" x2="8" y1="12" y2="4"/><polyline fill="none" points="4.5,7 8,3.5 11.5,7" stroke="#F8DB8F" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/></svg>
+  <span class="btt-label">TOP</span>
+</button>
+
+<script src="/js/config.js"></script>
+<script src="/js/site-chrome.js"></script>
+<script src="/js/reactions-comments.js"></script>
 
 <script>
 /* ════════════════════════════════════════════════════════════════
@@ -486,6 +651,18 @@ function getCachedChapter(novelId, slug) {
 function setCachedChapter(novelId, slug, chapter) {
   try { sessionStorage.setItem('pds-ch-' + novelId + '-' + slug, JSON.stringify(chapter)); } catch (_) {}
 }
+function getCachedNovel(slug) {
+  try {
+    const raw = sessionStorage.getItem('pds-novel-' + slug);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Date.now() - parsed.ts > TOC_CACHE_TTL) return null;
+    return parsed.novel;
+  } catch (_) { return null; }
+}
+function setCachedNovel(slug, novel) {
+  try { sessionStorage.setItem('pds-novel-' + slug, JSON.stringify({ novel, ts: Date.now() })); } catch (_) {}
+}
 
 function updateNavUI() {
   document.getElementById('btn-prev').disabled = currentChapter <= 0;
@@ -577,13 +754,42 @@ async function loadChapter() {
   }
 
   try {
-    // 1. Truyện (để lấy novel_id + tiêu đề)
-    const novelData = await fetchJSON(`/api/novels?slug=${encodeURIComponent(NOVEL_SLUG)}`);
+    // Không cần đợi novel_id để gọi các API sau: /api/chapters hỗ trợ lọc
+    // trực tiếp theo novel_slug + slug. Nhờ vậy truyện + nội dung chương có
+    // thể gọi SONG SONG bằng slug từ URL — bỏ hẳn kiểu tuần tự cũ (chờ
+    // novel_id trả về mới gọi tiếp), giúp nội dung chương hiện nhanh hơn
+    // đáng kể trên mạng chậm/di động. Ưu tiên dùng cache phiên (prefetch
+    // chương kế / đã ghé qua) để bỏ qua hẳn network call khi có thể.
+    const cachedNovelPeek   = getCachedNovel(NOVEL_SLUG);
+    const cachedChapterPeek = cachedNovelPeek ? getCachedChapter(cachedNovelPeek.id, CHAPTER_SLUG) : null;
+
+    const [novelData, chData] = await Promise.all([
+      cachedNovelPeek ? Promise.resolve({ ok: true, novels: [cachedNovelPeek] }) : fetchJSON(`/api/novels?slug=${encodeURIComponent(NOVEL_SLUG)}`),
+      cachedChapterPeek ? Promise.resolve({ ok: true, chapters: [cachedChapterPeek] }) : fetchJSON(`/api/chapters?novel_slug=${encodeURIComponent(NOVEL_SLUG)}&slug=${encodeURIComponent(CHAPTER_SLUG)}`),
+    ]);
+
     if (!novelData.ok || !novelData.novels || !novelData.novels.length) throw new Error('novel_not_found');
     NOVEL = novelData.novels[0];
+    setCachedNovel(NOVEL_SLUG, NOVEL);
     document.getElementById('ch-subtitle').textContent = NOVEL.title;
 
-    // 2. Mục lục nhẹ (cache theo phiên để prev/next mượt)
+    if (!chData.ok || !chData.chapters || !chData.chapters.length) throw new Error('chapter_not_found');
+    const chapter = chData.chapters[0];
+
+    document.title = `${chapter.title} — ${NOVEL.title}`;
+    document.getElementById('ch-title').textContent = chapter.title;
+    const volEl = document.getElementById('ch-vol');
+    if (chapter.volume) { volEl.textContent = chapter.volume; volEl.style.display = ''; }
+    else { volEl.style.display = 'none'; }
+
+    // Render nội dung ngay — không chờ mục lục (chỉ cần cho nút prev/next + panel mục lục).
+    renderStory(chapter.content);
+    setCachedChapter(NOVEL.id, CHAPTER_SLUG, chapter);
+
+    window.PDS_REACT_CTX = { novel_id: NOVEL.id, novel_slug: NOVEL.slug, chapter_id: chapter.id };
+    window.initReactionsComments?.();
+
+    // Mục lục nhẹ (cache theo phiên để prev/next mượt) — tải sau, không chặn nội dung chính.
     let cachedToc = getCachedToc(NOVEL.id);
     if (cachedToc) {
       CHAPTERS = cachedToc;
@@ -596,22 +802,6 @@ async function loadChapter() {
     currentChapter = CHAPTERS.findIndex(ch => ch.slug === CHAPTER_SLUG);
     updateNavUI();
     buildTocUI();
-
-    // 3. Nội dung chương hiện tại (ưu tiên cache từ prefetch trước đó)
-    let chapter = getCachedChapter(NOVEL.id, CHAPTER_SLUG);
-    if (!chapter) {
-      const chData = await fetchJSON(`/api/chapters?novel_id=${encodeURIComponent(NOVEL.id)}&slug=${encodeURIComponent(CHAPTER_SLUG)}`);
-      if (!chData.ok || !chData.chapters || !chData.chapters.length) throw new Error('chapter_not_found');
-      chapter = chData.chapters[0];
-    }
-
-    document.title = `${chapter.title} — ${NOVEL.title}`;
-    document.getElementById('ch-title').textContent = chapter.title;
-    const volEl = document.getElementById('ch-vol');
-    if (chapter.volume) { volEl.textContent = chapter.volume; volEl.style.display = ''; }
-    else { volEl.style.display = 'none'; }
-
-    renderStory(chapter.content);
     prefetchNext();
 
   } catch (e) {
