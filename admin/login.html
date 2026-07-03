@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Đăng nhập Admin — Phòng Đọc Số 0</title>
+<link rel="stylesheet" href="/admin/admin.css"/>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-box">
+    <div class="gem">✦</div>
+    <h1>Phòng Đọc Số 0</h1>
+    <p>Khu vực quản trị — chỉ dành cho admin.</p>
+    <div class="err" id="loginErr"></div>
+    <input type="password" id="pwInput" placeholder="Mật khẩu admin" autocomplete="current-password"/>
+    <button class="btn btn-gold" id="loginBtn" style="width:100%">Đăng nhập</button>
+  </div>
+</div>
+<script>
+const pw = document.getElementById('pwInput');
+const err = document.getElementById('loginErr');
+const btn = document.getElementById('loginBtn');
+
+async function doLogin() {
+  err.textContent = '';
+  const password = pw.value.trim();
+  if (!password) { err.textContent = 'Vui lòng nhập mật khẩu.'; return; }
+  btn.disabled = true; btn.textContent = 'Đang kiểm tra...';
+  try {
+    const res = await fetch('/api/admin-login', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      window.location.href = '/admin/index.html';
+    } else {
+      err.textContent = 'Sai mật khẩu. Vui lòng thử lại.';
+    }
+  } catch (e) {
+    err.textContent = 'Không kết nối được máy chủ.';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Đăng nhập';
+  }
+}
+
+btn.addEventListener('click', doLogin);
+pw.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+pw.focus();
+</script>
+</body>
+</html>

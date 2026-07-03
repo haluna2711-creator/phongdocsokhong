@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Tổng quan — Admin</title>
+<link rel="stylesheet" href="/admin/admin.css"/>
+</head>
+<body>
+<div id="app"></div>
+<script src="/admin/admin-common.js"></script>
+<script>
+(async function () {
+  await guardAdmin();
+
+  mountShell('dashboard', `
+    <div class="page-head">
+      <div><h1>Tổng quan</h1><p>Chào mừng trở lại.</p></div>
+    </div>
+    <div class="grid-3" id="stats">
+      <div class="card"><h2>Truyện</h2><div class="mono" style="font-size:32px" id="statNovels">…</div></div>
+      <div class="card"><h2>Chương đã đăng</h2><div class="mono" style="font-size:32px" id="statPublished">…</div></div>
+      <div class="card"><h2>Chương đã lên lịch</h2><div class="mono" style="font-size:32px" id="statScheduled">…</div></div>
+    </div>
+    <div class="card">
+      <h2>Lối tắt</h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a class="btn btn-gold" href="/admin/novels.html">+ Thêm truyện mới</a>
+        <a class="btn" href="/admin/chapters.html">Đăng chương hàng loạt</a>
+        <a class="btn" href="/admin/labels.html">Quản lý thể loại</a>
+      </div>
+    </div>
+  `);
+
+  try {
+    const { novels } = await api('/api/novels');
+    document.getElementById('statNovels').textContent = novels.length;
+
+    let published = 0, scheduled = 0;
+    for (const n of novels) {
+      const { chapters } = await api(`/api/chapters?novel_id=${n.id}`);
+      published += chapters.filter(c => c.status === 'published').length;
+      scheduled += chapters.filter(c => c.status === 'scheduled').length;
+    }
+    document.getElementById('statPublished').textContent = published;
+    document.getElementById('statScheduled').textContent = scheduled;
+  } catch (e) { toast('Không tải được thống kê', 'err'); }
+})();
+</script>
+</body>
+</html>

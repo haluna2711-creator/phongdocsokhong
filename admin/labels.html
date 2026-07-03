@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Thể loại — Admin</title>
+<link rel="stylesheet" href="/admin/admin.css"/>
+</head>
+<body>
+<div id="app"></div>
+<script src="/admin/admin-common.js"></script>
+<script>
+let LABELS = [];
+
+async function load() {
+  const { labels } = await api('/api/labels');
+  LABELS = labels;
+  render();
+}
+
+function render() {
+  mountShell('labels', `
+    <div class="page-head">
+      <div><h1>Thể loại / Label</h1><p>Dùng để gắn thẻ và lọc truyện trên trang chủ.</p></div>
+    </div>
+
+    <div class="card">
+      <h2>Thêm thể loại mới</h2>
+      <div class="field-row">
+        <div class="field" style="flex:1;min-width:200px">
+          <label>Tên thể loại</label>
+          <input type="text" id="newLabelName" placeholder="vd: Trinh thám"/>
+        </div>
+        <button class="btn btn-gold" id="addLabelBtn">+ Thêm</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Danh sách (${LABELS.length})</h2>
+      ${LABELS.length ? `
+        <table>
+          <thead><tr><th>Tên</th><th>Slug</th><th></th></tr></thead>
+          <tbody>
+            ${LABELS.map(l => `
+              <tr>
+                <td>${escHtml(l.name)}</td>
+                <td class="mono" style="color:var(--muted)">${escHtml(l.slug)}</td>
+                <td style="text-align:right">
+                  <button class="btn btn-sm btn-danger" data-del="${l.id}">Xoá</button>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      ` : `<div class="empty">Chưa có thể loại nào.</div>`}
+    </div>
+  `);
+
+  document.getElementById('addLabelBtn').addEventListener('click', addLabel);
+  document.getElementById('newLabelName').addEventListener('keydown', e => { if (e.key === 'Enter') addLabel(); });
+  document.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', () => delLabel(btn.dataset.del));
+  });
+}
+
+async function addLabel() {
+  const input = document.getElementById('newLabelName');
+  const name = input.value.trim();
+  if (!name) return;
+  try {
+    await api('/api/labels', { method: 'POST', body: { name } });
+    toast('Đã thêm thể loại', 'ok');
+    await load();
+  } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+}
+
+async function delLabel(id) {
+  if (!confirm('Xoá thể loại này?')) return;
+  try {
+    await api(`/api/labels?id=${id}`, { method: 'DELETE' });
+    toast('Đã xoá', 'ok');
+    await load();
+  } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+}
+
+(async function () { await guardAdmin(); await load(); })();
+</script>
+</body>
+</html>
