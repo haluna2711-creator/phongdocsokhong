@@ -19,14 +19,40 @@ function gasUrl(action, params) {
   return `${base}?${qs.toString()}`;
 }
 
+// Google Apps Script đôi khi bị "cold start" hoặc treo lâu bất thường.
+// Nếu không giới hạn thời gian, request có thể treo tới khi Vercel tự
+// timeout function (không có thông báo lỗi rõ ràng, admin thấy trang
+// "không hiển thị gì"). Đặt timeout ngắn hơn để luôn trả lỗi rõ ràng.
+async function fetchGas(url, timeoutMs = 9000) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: controller.signal });
+    const text = await r.text();
+    try {
+      return JSON.parse(text);
+    } catch (_) {
+      // GAS trả về không phải JSON — thường là do deployment sai quyền
+      // ("Who has access" khác "Anyone") nên Google trả về trang đăng nhập HTML.
+      throw new Error('Apps Script không trả về JSON hợp lệ (kiểm tra lại quyền truy cập của deployment).');
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('Apps Script phản hồi quá chậm (quá ' + Math.round(timeoutMs / 1000) + 's).');
+    }
+    throw err;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
 
   try {
     if (req.method === 'GET') {
       const postUrl = req.query.postUrl || '';
-      const r = await fetch(gasUrl('adminList', postUrl ? { postUrl } : {}));
-      const data = await r.json();
+      const data = await fetchGas(gasUrl('adminList', postUrl ? { postUrl } : {}));
       if (!data.ok) return res.status(502).json({ ok: false, reason: data.error || 'gas_error' });
       return res.status(200).json({ ok: true, comments: data.data });
     }
@@ -34,8 +60,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'DELETE') {
       const { id } = req.query;
       if (!id) return res.status(400).json({ ok: false, reason: 'missing_id' });
-      const r = await fetch(gasUrl('adminDelete', { id }));
-      const data = await r.json();
+      const data = await fetchGas(gasUrl('adminDelete', { id }));
       if (!data.ok) return res.status(502).json({ ok: false, reason: data.error || 'gas_error' });
       return res.status(200).json({ ok: true });
     }
@@ -45,14 +70,13 @@ module.exports = async function handler(req, res) {
       if (!postUrl || !parentId || !body) {
         return res.status(400).json({ ok: false, reason: 'missing_fields' });
       }
-      const r = await fetch(gasUrl('adminReply', {
+      const data = await fetchGas(gasUrl('adminReply', {
         postUrl,
         postTitle: postTitle || '',
         parentId,
         body,
         name: name || 'Quản trị viên',
       }));
-      const data = await r.json();
       if (!data.ok) return res.status(502).json({ ok: false, reason: data.error || 'gas_error' });
       return res.status(200).json({ ok: true, id: data.id });
     }
