@@ -1,0 +1,27 @@
+// ════════════════════════════════════
+// Helper dùng chung: gọi 1 URL ngoài (vd Apps Script) với timeout, tránh
+// treo vô thời hạn nếu dịch vụ ngoài phản hồi chậm/không phản hồi.
+// ════════════════════════════════════
+
+async function fetchJsonWithTimeout(url, timeoutMs = 9000) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: controller.signal });
+    const text = await r.text();
+    try {
+      return JSON.parse(text);
+    } catch (_) {
+      throw new Error('Phản hồi không phải JSON hợp lệ (kiểm tra lại quyền truy cập của Apps Script deployment).');
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error(`Yêu cầu quá thời gian (quá ${Math.round(timeoutMs / 1000)}s).`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+module.exports = { fetchJsonWithTimeout };
