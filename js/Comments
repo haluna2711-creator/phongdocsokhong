@@ -1,88 +1,73 @@
 // ════════════════════════════════════
-// PHÒNG ĐỌC SỐ 0 — Admin API cho bình luận
-// Proxy có xác thực tới Google Apps Script (gas/CommentsApi.gs).
-// Khoá bí mật (COMMENTS_ADMIN_KEY) chỉ nằm ở server, không lộ ra trình duyệt.
-//
-// Biến môi trường cần thiết trên Vercel:
-//   COMMENT_URL          — URL /exec của Apps Script (giống js/config.js -> COMMENT_URL)
-//   COMMENTS_ADMIN_KEY    — phải trùng với Script Property "ADMIN_KEY" trong Apps Script
+// PHÒNG ĐỌC SỐ 0 — API Bình luận công khai (Supabase)
+// Dùng bởi js/reactions-comments.js (trang đọc chương). Không cần đăng nhập.
+// Quản trị (xem tất cả / xoá / trả lời với tư cách admin) nằm ở
+// api/admin-comments.js — tách riêng để không lẫn quyền hạn.
 // ════════════════════════════════════
 
-const { requireAdmin } = require('./_lib/auth');
+const { getSupabaseAdmin } = require('./_lib/supabaseAdmin');
 
-function gasUrl(action, params) {
-  const base = process.env.COMMENT_URL;
-  if (!base) throw new Error('Thiếu biến môi trường COMMENT_URL.');
-  const key = process.env.COMMENTS_ADMIN_KEY;
-  if (!key) throw new Error('Thiếu biến môi trường COMMENTS_ADMIN_KEY.');
-  const qs = new URLSearchParams({ action, key, ...params });
-  return `${base}?${qs.toString()}`;
-}
-
-// Google Apps Script đôi khi bị "cold start" hoặc treo lâu bất thường.
-// Nếu không giới hạn thời gian, request có thể treo tới khi Vercel tự
-// timeout function (không có thông báo lỗi rõ ràng, admin thấy trang
-// "không hiển thị gì"). Đặt timeout ngắn hơn để luôn trả lỗi rõ ràng.
-async function fetchGas(url, timeoutMs = 9000) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const r = await fetch(url, { signal: controller.signal });
-    const text = await r.text();
-    try {
-      return JSON.parse(text);
-    } catch (_) {
-      // GAS trả về không phải JSON — thường là do deployment sai quyền
-      // ("Who has access" khác "Anyone") nên Google trả về trang đăng nhập HTML.
-      throw new Error('Apps Script không trả về JSON hợp lệ (kiểm tra lại quyền truy cập của deployment).');
-    }
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      throw new Error('Apps Script phản hồi quá chậm (quá ' + Math.round(timeoutMs / 1000) + 's).');
-    }
-    throw err;
-  } finally {
-    clearTimeout(t);
-  }
+function mapRow(r) {
+  return {
+    id: r.id,
+    postUrl: r.post_url,
+    postTitle: r.post_title,
+    name: r.name,
+    body: r.body,
+    ts: Number(r.ts),
+    parentId: r.parent_id || null,
+    isAdmin: !!r.is_admin,
+  };
 }
 
 module.exports = async function handler(req, res) {
-  if (!requireAdmin(req, res)) return;
+  const db = getSupabaseAdmin();
 
-  try {
-    if (req.method === 'GET') {
-      const postUrl = req.query.postUrl || '';
-      const data = await fetchGas(gasUrl('adminList', postUrl ? { postUrl } : {}));
-      if (!data.ok) return res.status(502).json({ ok: false, reason: data.error || 'gas_error' });
-      return res.status(200).json({ ok: true, comments: data.data });
-    }
+  if (req.method === 'GET') {
+    const postUrl = String(req.query.postUrl || '').trim();
+    if (!postUrl) return res.status(400).json({ ok: false, reason: 'missing_postUrl' });
 
-    if (req.method === 'DELETE') {
-      const { id } = req.query;
-      if (!id) return res.status(400).json({ ok: false, reason: 'missing_id' });
-      const data = await fetchGas(gasUrl('adminDelete', { id }));
-      if (!data.ok) return res.status(502).json({ ok: false, reason: data.error || 'gas_error' });
-      return res.status(200).json({ ok: true });
-    }
+    const { data, error } = await db
+      .from('comments')
+      .select('id, post_url, post_title, name, body, ts, parent_id, is_admin')
+      .eq('post_url', postUrl)
+      .eq('deleted', false)
+      .order('ts', { ascending: true });
 
-    if (req.method === 'POST') {
-      const { postUrl, postTitle, parentId, body, name } = req.body || {};
-      if (!postUrl || !parentId || !body) {
-        return res.status(400).json({ ok: false, reason: 'missing_fields' });
-      }
-      const data = await fetchGas(gasUrl('adminReply', {
-        postUrl,
-        postTitle: postTitle || '',
-        parentId,
-        body,
-        name: name || 'Quản trị viên',
-      }));
-      if (!data.ok) return res.status(502).json({ ok: false, reason: data.error || 'gas_error' });
-      return res.status(200).json({ ok: true, id: data.id });
-    }
-
-    return res.status(405).json({ ok: false, reason: 'method_not_allowed' });
-  } catch (err) {
-    return res.status(500).json({ ok: false, reason: err.message });
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+    return res.status(200).json({ ok: true, data: (data || []).map(mapRow) });
   }
+
+  if (req.method === 'POST') {
+    const b = req.body || {};
+    const postUrl = String(b.postUrl || '').trim();
+    const postTitle = String(b.postTitle || '').trim();
+    const name = String(b.name || '').trim().slice(0, 60);
+    const body = String(b.body || '').trim().slice(0, 2000);
+    const parentId = b.parentId ? String(b.parentId) : null;
+
+    if (!postUrl || !name || !body) {
+      return res.status(400).json({ ok: false, reason: 'missing_fields' });
+    }
+
+    const { data, error } = await db
+      .from('comments')
+      .insert({
+        post_url: postUrl,
+        post_title: postTitle || null,
+        name,
+        body,
+        ts: Date.now(),
+        parent_id: parentId,
+        is_admin: false,
+        deleted: false,
+      })
+      .select('id')
+      .single();
+
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+    return res.status(200).json({ ok: true, id: data.id });
+  }
+
+  return res.status(405).json({ ok: false, reason: 'method_not_allowed' });
 };
