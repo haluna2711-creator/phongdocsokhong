@@ -82,7 +82,7 @@ async function delLabel(id) {
   } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
 }
 
-(async function () { await guardAdmin(); await load(); })();
+bootAdmin('labels', load);
 </script>
 </body>
 </html>
