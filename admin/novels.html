@@ -155,7 +155,7 @@ async function delNovel(id) {
   } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
 }
 
-(async function () { await guardAdmin(); await load(); })();
+bootAdmin('novels', load);
 </script>
 </body>
 </html>
