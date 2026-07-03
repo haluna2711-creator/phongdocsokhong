@@ -45,11 +45,9 @@
     checkLogin();
   }
 
-  // Ping wakeup
-  try {
-    fetch(PDS_CONFIG.GATE_URL + '?action=ping', { method: 'GET', keepalive: true }).catch(() => {});
-    fetch(PDS_CONFIG.COMMENT_URL + '?action=ping', { method: 'GET', keepalive: true }).catch(() => {});
-  } catch (e) {}
+  // Không cần "ping wakeup" Apps Script nữa — auth gate giờ gọi thẳng
+  // /api/auth-register (Vercel function, khởi động nhanh hơn nhiều so với
+  // cold-start của Google Apps Script trước đây).
 
   // ── BƯỚC 1: Nhận mã ──
   window.pdsRegister = function () {
@@ -64,7 +62,7 @@
     setLoading('reg', true);
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 10000);
-    fetch(PDS_CONFIG.GATE_URL + '?action=register&email=' + encodeURIComponent(email), { signal: ctrl.signal })
+    fetch('/api/auth-register?action=register&email=' + encodeURIComponent(email), { signal: ctrl.signal })
       .then(r => { clearTimeout(timer); return r.json(); })
       .then(d => {
         setLoading('reg', false);
@@ -106,7 +104,7 @@
     setLoading('login', true);
     const ctrl2 = new AbortController();
     const timer2 = setTimeout(() => ctrl2.abort(), 10000);
-    fetch(PDS_CONFIG.GATE_URL + '?action=verify&email=' + encodeURIComponent(email) + '&code=' + encodeURIComponent(code), { signal: ctrl2.signal })
+    fetch('/api/auth-register?action=verify&email=' + encodeURIComponent(email) + '&code=' + encodeURIComponent(code), { signal: ctrl2.signal })
       .then(r => { clearTimeout(timer2); return r.json(); })
       .then(d => {
         setLoading('login', false);
