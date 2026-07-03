@@ -962,12 +962,14 @@ async function loadNovel() {
   if (!slug) { showError(); return; }
 
   try {
-    const res = await fetch(`/api/novels?slug=${encodeURIComponent(slug)}`);
+    // credentials:'omit': trang công khai, không được vô tình gửi kèm cookie
+    // phiên admin (xem giải thích chi tiết trong doc.html -> fetchJSON).
+    const res = await fetch(`/api/novels?slug=${encodeURIComponent(slug)}`, { credentials: 'omit' });
     const data = await res.json();
     if (!data.ok || !data.novels || !data.novels.length) { showError(); return; }
     NOVEL = data.novels[0];
 
-    const chRes = await fetch(`/api/chapters?novel_id=${encodeURIComponent(NOVEL.id)}`);
+    const chRes = await fetch(`/api/chapters?novel_id=${encodeURIComponent(NOVEL.id)}`, { credentials: 'omit' });
     const chData = await chRes.json();
     chapters = (chData.ok && chData.chapters) ? chData.chapters : [];
     chapters.sort((a, b) => a.chapter_number - b.chapter_number);
