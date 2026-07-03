@@ -3,16 +3,17 @@
 // Dùng bởi js/auth.js: GET /api/auth-register?action=register&email=...
 //                       GET /api/auth-register?action=verify&email=...&code=...
 //
-// Bảng Supabase cần có: "readers"
-//   - email          text (unique, lowercase)
-//   - code           text (mã truy cập, ví dụ 8 ký tự)
-//   - disabled       boolean, default false
-//   - created_at     timestamptz, default now()
-//   - last_login_at  timestamptz, nullable — cập nhật mỗi lần verify thành
-//                     công. Dùng bởi api/cron-lock-inactive.js để tự khoá
-//                     tài khoản không đăng nhập trong 2 năm (nếu NULL thì
-//                     tính theo created_at, tức là chưa từng đăng nhập lần nào
-//                     kể từ lúc đăng ký).
+// Bảng Supabase "readers" (đúng theo schema hiện tại của bạn):
+//   - id             uuid, primary key, default gen_random_uuid()
+//   - email          text, unique, not null
+//   - access_code    text, not null (mã truy cập, ví dụ 8 ký tự)
+//   - disabled       boolean, not null, default false
+//   - created_at     timestamptz, not null, default now()
+//   - last_login_at  timestamptz, nullable — CẦN THÊM MỚI bằng lệnh:
+//       alter table public.readers add column if not exists last_login_at timestamptz;
+//     Cập nhật mỗi lần verify thành công, dùng bởi api/cron-lock-inactive.js
+//     để tự khoá tài khoản không đăng nhập trong 2 năm (nếu NULL thì tính
+//     theo created_at, tức là chưa từng đăng nhập lần nào kể từ lúc đăng ký).
 //
 // Biến môi trường cần thiết trên Vercel:
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  — xem api/_lib/supabaseAdmin.js
@@ -89,7 +90,7 @@ module.exports = async function handler(req, res) {
       const code = genCode();
       const { error: insErr } = await db
         .from('readers')
-        .insert({ email, code, disabled: false });
+        .insert({ email, access_code: code, disabled: false });
       if (insErr) return res.status(500).json({ ok: false, reason: insErr.message });
 
       try {
@@ -110,13 +111,13 @@ module.exports = async function handler(req, res) {
 
       const { data: reader, error } = await db
         .from('readers')
-        .select('id, code, disabled')
+        .select('id, access_code, disabled')
         .eq('email', email)
         .maybeSingle();
       if (error) return res.status(500).json({ ok: false, reason: error.message });
       if (!reader) return res.status(200).json({ ok: false, reason: 'email_not_found' });
       if (reader.disabled) return res.status(200).json({ ok: false, reason: 'account_disabled' });
-      if (String(reader.code).toUpperCase() !== code) {
+      if (String(reader.access_code).toUpperCase() !== code) {
         return res.status(200).json({ ok: false, reason: 'wrong_code' });
       }
 
