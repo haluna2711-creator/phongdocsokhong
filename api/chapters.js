@@ -15,9 +15,16 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     const admin = isAdmin(req);
-    const { novel_id, id } = req.query;
-    let query = db.from('chapters').select('*');
+    const { novel_id, id, slug } = req.query;
+    // Khi lấy 1 chương cụ thể (id hoặc slug) trả về đầy đủ (kèm content).
+    // Khi lấy danh sách (mục lục) chỉ trả trường nhẹ để tránh tải content của cả trăm chương.
+    const single = !!(id || slug);
+    const fields = single
+      ? '*'
+      : 'id, novel_id, title, slug, volume, chapter_number, status, published_at, scheduled_at';
+    let query = db.from('chapters').select(fields);
     if (id) query = query.eq('id', id);
+    if (slug) query = query.eq('slug', slug);
     if (novel_id) query = query.eq('novel_id', novel_id);
     if (!admin) query = query.eq('status', 'published');
     query = query.order('chapter_number', { ascending: true });
