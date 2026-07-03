@@ -13,14 +13,13 @@ const PDS_CONFIG = {
   // Số bài tối đa mỗi label
   MAX_RESULTS: 50,
 
-  // Google Apps Script — Auth gate
-  GATE_URL: 'https://script.google.com/macros/s/AKfycbylmqIW7n5SbrSYWN1OnV0SmtGsgigv6dZXHzqxvxkGou-5XcclEvNJDkF64wo7zZGUBw/exec',
-
-  // Google Apps Script — Comment + Reply
-  COMMENT_URL: 'https://script.google.com/macros/s/AKfycbx8QZXbiXNmn1daebdRX4TUMpDNLpMaGurY0jPdHHIhW5Kk0U71smu1txx-4NfLpFHYuA/exec',
-
-  // Google Apps Script — Reaction
-  REACT_URL: 'https://script.google.com/macros/s/AKfycbx-dADGHLyTi1iInNLb9n4_Xe572wmLmkspo4kucaL8qvLfj3HhQz2nahMiUjuwHN87/exec',
+  // Google Apps Script — Auth gate, Comments, Reactions: KHÔNG dùng nữa.
+  // Dữ liệu đã chuyển sang Supabase, truy cập qua /api/auth-register,
+  // /api/comments, /api/reactions (cùng domain, không còn gọi thẳng ra
+  // script.google.com từ trình duyệt nữa — nhanh hơn và không lộ URL script).
+  // Google Apps Script (gas/MailSender.gs) giờ chỉ còn nhiệm vụ gửi email
+  // mã truy cập, được gọi từ server (api/auth-register.js), không phải
+  // từ trình duyệt.
 
   // Follow.it form action URL
   FOLLOW_URL: 'https://api.follow.it/subscription-form/aTRFdXlTY2JkbGJKQ2J5bHArd1RBaVpLYWx6QnN2UDFyUk9BbktnOHdhMHcwQW45cy9qUEJmdmd5MDJqOEp4YTVYZnlxclExcGI5a3ZmQ21vdWN4MDFtWXZ4OEFPSW4zV1JlZ0VEbFlJRzBaUmF3WEk2R2xYQTN0YS83alpDb3N8bHpVd2VKa1lTbFRCMGgyR2xYWk5zUUhGQW94a2tUSEhMN3o4SHpnNnFVTT0=/8',
