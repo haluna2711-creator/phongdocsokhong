@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Truyện — Admin</title>
+<link rel="stylesheet" href="/admin/admin.css"/>
+</head>
+<body>
+<div id="app"></div>
+<script src="/admin/admin-common.js"></script>
+<script>
+let NOVELS = [];
+let LABELS = [];
+let editingId = null; // null = form đóng, 'new' = thêm mới, id = đang sửa
+
+async function load() {
+  const [n, l] = await Promise.all([api('/api/novels'), api('/api/labels')]);
+  NOVELS = n.novels;
+  LABELS = l.labels;
+  render();
+}
+
+function labelIdsOf(novel) {
+  return (novel.novel_labels || []).map(nl => nl.label_id);
+}
+
+function formHtml(novel) {
+  const v = novel || {};
+  const selected = novel ? labelIdsOf(novel) : [];
+  return `
+    <div class="card">
+      <h2>${novel ? 'Sửa truyện' : 'Thêm truyện mới'}</h2>
+      <div class="grid-2">
+        <div class="field"><label>Tiêu đề *</label><input type="text" id="fTitle" value="${escHtml(v.title||'')}"/></div>
+        <div class="field"><label>Slug (URL /post/:slug)</label><input type="text" id="fSlug" value="${escHtml(v.slug||'')}" placeholder="tự tạo từ tiêu đề nếu để trống"/></div>
+        <div class="field"><label>Tác giả</label><input type="text" id="fAuthor" value="${escHtml(v.author||'')}"/></div>
+        <div class="field"><label>Biên tập</label><input type="text" id="fEditor" value="${escHtml(v.editor||'')}"/></div>
+        <div class="field"><label>Ảnh bìa (URL)</label><input type="text" id="fCover" value="${escHtml(v.cover_url||'')}"/></div>
+        <div class="field">
+          <label>Trạng thái</label>
+          <select id="fStatus">
+            <option value="ongoing" ${v.status==='ongoing'?'selected':''}>Đang tiến hành</option>
+            <option value="completed" ${v.status==='completed'?'selected':''}>Hoàn thành</option>
+            <option value="dropped" ${v.status==='dropped'?'selected':''}>Tạm dừng</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Mô tả</label><textarea id="fDesc">${escHtml(v.description||'')}</textarea></div>
+      <div class="field"><label>Tags (cách nhau bằng dấu phẩy)</label><input type="text" id="fTags" value="${escHtml((v.tags||[]).join(', '))}"/></div>
+      <div class="field">
+        <label>Thể loại</label>
+        <div class="checkbox-row" id="labelChips">
+          ${LABELS.map(l => `<span class="chip-toggle ${selected.includes(l.id)?'active':''}" data-id="${l.id}">${escHtml(l.name)}</span>`).join('') || '<span class="hint">Chưa có thể loại — tạo ở trang Thể loại.</span>'}
+        </div>
+      </div>
+      <div class="field">
+        <label style="display:inline-flex;align-items:center;gap:6px;text-transform:none;font-size:14px">
+          <input type="checkbox" id="fPublished" style="width:auto" ${v.published !== false ? 'checked' : ''}/> Hiển thị công khai trên trang chủ
+        </label>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-gold" id="saveNovelBtn">${novel ? 'Lưu thay đổi' : 'Tạo truyện'}</button>
+        <button class="btn" id="cancelNovelBtn">Huỷ</button>
+      </div>
+    </div>`;
+}
+
+function render() {
+  const editingNovel = editingId && editingId !== 'new' ? NOVELS.find(n => n.id === editingId) : null;
+
+  mountShell('novels', `
+    <div class="page-head">
+      <div><h1>Truyện</h1><p>Quản lý danh sách truyện trong thư viện.</p></div>
+      ${editingId ? '' : '<button class="btn btn-gold" id="addNovelBtn">+ Thêm truyện</button>'}
+    </div>
+
+    ${editingId ? formHtml(editingNovel) : ''}
+
+    <div class="card">
+      <h2>Danh sách (${NOVELS.length})</h2>
+      ${NOVELS.length ? `
+        <table>
+          <thead><tr><th>Tiêu đề</th><th>Slug</th><th>Trạng thái</th><th>Số chương</th><th>Hiển thị</th><th></th></tr></thead>
+          <tbody>
+            ${NOVELS.map(n => `
+              <tr>
+                <td>${escHtml(n.title)}</td>
+                <td class="mono" style="color:var(--muted)">/post/${escHtml(n.slug)}</td>
+                <td><span class="status-badge status-${n.status==='ongoing'?'scheduled':n.status==='completed'?'published':'draft'}">${n.status}</span></td>
+                <td>${n.chapter_count ?? 0}</td>
+                <td>${n.published !== false ? '✦ Công khai' : '— Ẩn'}</td>
+                <td style="text-align:right;white-space:nowrap">
+                  <a class="btn btn-sm" href="/admin/chapters.html?novel=${n.id}">Chương</a>
+                  <button class="btn btn-sm" data-edit="${n.id}">Sửa</button>
+                  <button class="btn btn-sm btn-danger" data-del="${n.id}">Xoá</button>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      ` : `<div class="empty">Chưa có truyện nào. Nhấn "+ Thêm truyện" để bắt đầu.</div>`}
+    </div>
+  `);
+
+  const addBtn = document.getElementById('addNovelBtn');
+  if (addBtn) addBtn.addEventListener('click', () => { editingId = 'new'; render(); });
+
+  document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => { editingId = b.dataset.edit; render(); }));
+  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => delNovel(b.dataset.del)));
+
+  document.querySelectorAll('.chip-toggle').forEach(chip => {
+    chip.addEventListener('click', () => chip.classList.toggle('active'));
+  });
+
+  const saveBtn = document.getElementById('saveNovelBtn');
+  if (saveBtn) saveBtn.addEventListener('click', saveNovel);
+  const cancelBtn = document.getElementById('cancelNovelBtn');
+  if (cancelBtn) cancelBtn.addEventListener('click', () => { editingId = null; render(); });
+}
+
+async function saveNovel() {
+  const body = {
+    title: document.getElementById('fTitle').value.trim(),
+    slug: document.getElementById('fSlug').value.trim(),
+    author: document.getElementById('fAuthor').value.trim(),
+    editor: document.getElementById('fEditor').value.trim(),
+    cover_url: document.getElementById('fCover').value.trim(),
+    status: document.getElementById('fStatus').value,
+    description: document.getElementById('fDesc').value,
+    tags: document.getElementById('fTags').value.split(',').map(s => s.trim()).filter(Boolean),
+    published: document.getElementById('fPublished').checked,
+    label_ids: Array.from(document.querySelectorAll('.chip-toggle.active')).map(c => c.dataset.id),
+  };
+  if (!body.title) { toast('Vui lòng nhập tiêu đề', 'err'); return; }
+
+  try {
+    if (editingId === 'new') {
+      await api('/api/novels', { method: 'POST', body });
+      toast('Đã tạo truyện', 'ok');
+    } else {
+      await api(`/api/novels?id=${editingId}`, { method: 'PUT', body });
+      toast('Đã lưu thay đổi', 'ok');
+    }
+    editingId = null;
+    await load();
+  } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+}
+
+async function delNovel(id) {
+  if (!confirm('Xoá truyện này? Toàn bộ chương liên quan cũng sẽ bị xoá.')) return;
+  try {
+    await api(`/api/novels?id=${id}`, { method: 'DELETE' });
+    toast('Đã xoá truyện', 'ok');
+    await load();
+  } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+}
+
+(async function () { await guardAdmin(); await load(); })();
+</script>
+</body>
+</html>
