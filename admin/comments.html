@@ -73,7 +73,7 @@ function fmtTime(ts) {
 }
 
 function renderComment(c, postUrl, postTitle, isReply) {
-  const badge = c.isAdmin ? '<span class="c-admin-badge">Quản trị viên</span>' : '';
+  const badge = c.isAdmin ? '<span class="c-admin-badge">Quản thư</span>' : '';
   const replyBtn = isReply ? '' : `<button class="btn btn-sm" data-reply="${c.id}">Trả lời</button>`;
   const delBtn = `<button class="btn btn-sm btn-danger" data-del="${c.id}">Xoá</button>`;
   const replyForm = (!isReply && openReplyId === String(c.id)) ? `
