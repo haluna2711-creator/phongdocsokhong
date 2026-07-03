@@ -15,23 +15,35 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     const admin = isAdmin(req);
-    const { novel_id, id, slug } = req.query;
+    const { novel_id, novel_slug, id, slug } = req.query;
     // Khi lấy 1 chương cụ thể (id hoặc slug) trả về đầy đủ (kèm content).
     // Khi lấy danh sách (mục lục) chỉ trả trường nhẹ để tránh tải content của cả trăm chương.
     const single = !!(id || slug);
     const fields = single
       ? '*'
       : 'id, novel_id, title, slug, volume, chapter_number, status, published_at, scheduled_at';
-    let query = db.from('chapters').select(fields);
+
+    // novel_slug: lọc kèm theo slug truyện ngay trong 1 câu query (join `!inner`),
+    // KHÔNG cần round-trip riêng để đổi slug -> novel_id trước. Trước đây tham số
+    // này bị bỏ qua hoàn toàn nên `slug` (mã chương) có thể trùng giữa 2 truyện
+    // khác nhau và trả nhầm chương — filter theo novel_slug khắc phục luôn lỗi đó.
+    const selectFields = novel_slug ? `${fields}, novels!inner(slug)` : fields;
+    let query = db.from('chapters').select(selectFields);
     if (id) query = query.eq('id', id);
     if (slug) query = query.eq('slug', slug);
     if (novel_id) query = query.eq('novel_id', novel_id);
+    if (novel_slug) query = query.eq('novels.slug', novel_slug);
     if (!admin) query = query.eq('status', 'published');
     query = query.order('chapter_number', { ascending: true });
 
     const { data, error } = await query;
     if (error) return res.status(500).json({ ok: false, reason: error.message });
-    return res.status(200).json({ ok: true, chapters: data });
+    // Bỏ field novels lồng vào (chỉ dùng để lọc) trước khi trả về cho client.
+    const cleaned = novel_slug ? (data || []).map(({ novels, ...rest }) => rest) : data;
+    // Nội dung chương đã published ít đổi → cho phép cache ngắn hạn ở CDN/Edge,
+    // giúp các lượt đọc sau (đặc biệt chương hot) trả về gần như tức thì.
+    if (!admin) res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
+    return res.status(200).json({ ok: true, chapters: cleaned });
   }
 
   if (!requireAdmin(req, res)) return;
