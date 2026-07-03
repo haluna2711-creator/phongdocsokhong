@@ -1,8 +1,9 @@
 {
   "rewrites": [
-    { "source": "/post/:slug", "destination": "/post.html" },
-    { "source": "/p/:slug",    "destination": "/page.html" },
-    { "source": "/admin",      "destination": "/admin/index.html" }
+    { "source": "/post/:slug",            "destination": "/post.html" },
+    { "source": "/doc/:novel/:chapter",   "destination": "/doc.html" },
+    { "source": "/p/:slug",               "destination": "/page.html" },
+    { "source": "/admin",                 "destination": "/admin/index.html" }
   ],
   "headers": [
     {
