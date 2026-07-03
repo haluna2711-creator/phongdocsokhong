@@ -16,7 +16,7 @@ module.exports = async function handler(req, res) {
 
   const { data: due, error: selErr } = await db
     .from('chapters')
-    .select('id')
+    .select('id, novel_id')
     .eq('status', 'scheduled')
     .lte('scheduled_at', nowIso);
 
@@ -30,5 +30,12 @@ module.exports = async function handler(req, res) {
     .in('id', ids);
 
   if (updErr) return res.status(500).json({ ok: false, reason: updErr.message });
+
+  // Chương vừa tự động lên sóng → đánh dấu (các) truyện cha là "mới cập nhật".
+  const novelIds = [...new Set(due.map((r) => r.novel_id).filter(Boolean))];
+  if (novelIds.length) {
+    await db.from('novels').update({ updated_at: nowIso }).in('id', novelIds);
+  }
+
   return res.status(200).json({ ok: true, published: ids.length });
 };
