@@ -15,6 +15,7 @@
     }
   ],
   "crons": [
-  { "path": "/api/cron-publish", "schedule": "0 10 * * *" }
+  { "path": "/api/cron-publish", "schedule": "0 10 * * *" },
+  { "path": "/api/cron-lock-inactive", "schedule": "0 3 * * *" }
 ]
 }
