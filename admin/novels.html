@@ -1,161 +1,147 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Truyện — Admin</title>
-<link rel="stylesheet" href="/admin/admin.css"/>
-</head>
-<body>
-<div id="app"></div>
-<script src="/admin/admin-common.js"></script>
-<script>
-let NOVELS = [];
-let LABELS = [];
-let editingId = null; // null = form đóng, 'new' = thêm mới, id = đang sửa
+const { getSupabaseAdmin } = require('./_lib/supabaseAdmin');
+const { isAdmin, requireAdmin } = require('./_lib/auth');
 
-async function load() {
-  const [n, l] = await Promise.all([api('/api/novels'), api('/api/labels')]);
-  NOVELS = n.novels;
-  LABELS = l.labels;
-  render();
+function slugify(str) {
+  return String(str)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // bỏ dấu
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
-function labelIdsOf(novel) {
-  return (novel.novel_labels || []).map(nl => nl.label_id);
-}
+module.exports = async function handler(req, res) {
+  const db = getSupabaseAdmin();
 
-function formHtml(novel) {
-  const v = novel || {};
-  const selected = novel ? labelIdsOf(novel) : [];
-  return `
-    <div class="card">
-      <h2>${novel ? 'Sửa truyện' : 'Thêm truyện mới'}</h2>
-      <div class="grid-2">
-        <div class="field"><label>Tiêu đề *</label><input type="text" id="fTitle" value="${escHtml(v.title||'')}"/></div>
-        <div class="field"><label>Slug (URL /post/:slug)</label><input type="text" id="fSlug" value="${escHtml(v.slug||'')}" placeholder="tự tạo từ tiêu đề nếu để trống"/></div>
-        <div class="field"><label>Tác giả</label><input type="text" id="fAuthor" value="${escHtml(v.author||'')}"/></div>
-        <div class="field"><label>Biên tập</label><input type="text" id="fEditor" value="${escHtml(v.editor||'')}"/></div>
-        <div class="field"><label>Ảnh bìa (URL)</label><input type="text" id="fCover" value="${escHtml(v.cover_url||'')}"/></div>
-        <div class="field">
-          <label>Trạng thái</label>
-          <select id="fStatus">
-            <option value="ongoing" ${v.status==='ongoing'?'selected':''}>Đang tiến hành</option>
-            <option value="completed" ${v.status==='completed'?'selected':''}>Hoàn thành</option>
-            <option value="dropped" ${v.status==='dropped'?'selected':''}>Tạm dừng</option>
-          </select>
-        </div>
-      </div>
-      <div class="field"><label>Mô tả</label><textarea id="fDesc">${escHtml(v.description||'')}</textarea></div>
-      <div class="field"><label>Tags (cách nhau bằng dấu phẩy)</label><input type="text" id="fTags" value="${escHtml((v.tags||[]).join(', '))}"/></div>
-      <div class="field">
-        <label>Thể loại</label>
-        <div class="checkbox-row" id="labelChips">
-          ${LABELS.map(l => `<span class="chip-toggle ${selected.includes(l.id)?'active':''}" data-id="${l.id}">${escHtml(l.name)}</span>`).join('') || '<span class="hint">Chưa có thể loại — tạo ở trang Thể loại.</span>'}
-        </div>
-      </div>
-      <div class="field">
-        <label style="display:inline-flex;align-items:center;gap:6px;text-transform:none;font-size:14px">
-          <input type="checkbox" id="fPublished" style="width:auto" ${v.published !== false ? 'checked' : ''}/> Hiển thị công khai trên trang chủ
-        </label>
-      </div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-gold" id="saveNovelBtn">${novel ? 'Lưu thay đổi' : 'Tạo truyện'}</button>
-        <button class="btn" id="cancelNovelBtn">Huỷ</button>
-      </div>
-    </div>`;
-}
+  // ── GET: list hoặc lấy 1 truyện theo id/slug ──
+  if (req.method === 'GET') {
+    const admin = isAdmin(req);
+    const { id, slug, light } = req.query;
 
-function render() {
-  const editingNovel = editingId && editingId !== 'new' ? NOVELS.find(n => n.id === editingId) : null;
+    // light=1: dùng cho trang đọc chương (doc.html) — chỉ cần các trường cơ bản
+    // để hiện tiêu đề/mục lục, KHÔNG cần đếm chapter_count / view_count (2 query
+    // phụ tốn thời gian). Giúp mở chương nhanh hơn đáng kể.
+    const isLight = light === '1' && !admin;
+    const fields = isLight ? 'id, slug, title, cover_url' : '*, novel_labels(label_id, labels(id,name,slug))';
 
-  mountShell('novels', `
-    <div class="page-head">
-      <div><h1>Truyện</h1><p>Quản lý danh sách truyện trong thư viện.</p></div>
-      ${editingId ? '' : '<button class="btn btn-gold" id="addNovelBtn">+ Thêm truyện</button>'}
-    </div>
+    let query = db.from('novels').select(fields);
+    if (!admin) query = query.eq('published', true);
+    if (id) query = query.eq('id', id);
+    if (slug) query = query.eq('slug', slug);
+    query = query.order('created_at', { ascending: false });
 
-    ${editingId ? formHtml(editingNovel) : ''}
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
 
-    <div class="card">
-      <h2>Danh sách (${NOVELS.length})</h2>
-      ${NOVELS.length ? `
-        <table>
-          <thead><tr><th>Tiêu đề</th><th>Slug</th><th>Trạng thái</th><th>Số chương</th><th>Hiển thị</th><th></th></tr></thead>
-          <tbody>
-            ${NOVELS.map(n => `
-              <tr>
-                <td>${escHtml(n.title)}</td>
-                <td class="mono" style="color:var(--muted)">/post/${escHtml(n.slug)}</td>
-                <td><span class="status-badge status-${n.status==='ongoing'?'scheduled':n.status==='completed'?'published':'draft'}">${n.status}</span></td>
-                <td>${n.chapter_count ?? 0}</td>
-                <td>${n.published !== false ? '✦ Công khai' : '— Ẩn'}</td>
-                <td style="text-align:right;white-space:nowrap">
-                  <a class="btn btn-sm" href="/admin/chapters.html?novel=${n.id}">Chương</a>
-                  <button class="btn btn-sm" data-edit="${n.id}">Sửa</button>
-                  <button class="btn btn-sm btn-danger" data-del="${n.id}">Xoá</button>
-                </td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      ` : `<div class="empty">Chưa có truyện nào. Nhấn "+ Thêm truyện" để bắt đầu.</div>`}
-    </div>
-  `);
+    if (!isLight) {
+      // Đính kèm số chương cho mỗi truyện (dùng cho danh sách admin + trang truyện)
+      if (data && data.length) {
+        let cq = db.from('chapters').select('novel_id, status').in('novel_id', data.map((n) => n.id));
+        if (!admin) cq = cq.eq('status', 'published');
+        const { data: chRows } = await cq;
+        const counts = {};
+        (chRows || []).forEach((r) => { counts[r.novel_id] = (counts[r.novel_id] || 0) + 1; });
+        data.forEach((n) => { n.chapter_count = counts[n.id] || 0; });
+      }
 
-  const addBtn = document.getElementById('addNovelBtn');
-  if (addBtn) addBtn.addEventListener('click', () => { editingId = 'new'; render(); });
+      // Đính kèm số lượt xem (tổng + trong tháng hiện tại) cho mỗi truyện.
+      // Dùng cho: mục "Nổi Bật" (xem nhiều trong tháng) và mục "Thư Viện Truyện"
+      // (đọc nhiều nhất mỗi thể loại). Nguồn dữ liệu: bảng novel_views,
+      // mỗi dòng là 1 lượt xem được ghi qua POST /api/views.
+      if (data && data.length) {
+        const now = new Date();
+        const startOfMonthIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => { editingId = b.dataset.edit; render(); }));
-  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => delNovel(b.dataset.del)));
+        const { data: viewRows } = await db
+          .from('novel_views')
+          .select('novel_id, viewed_at')
+          .in('novel_id', data.map((n) => n.id));
 
-  document.querySelectorAll('.chip-toggle').forEach(chip => {
-    chip.addEventListener('click', () => chip.classList.toggle('active'));
-  });
-
-  const saveBtn = document.getElementById('saveNovelBtn');
-  if (saveBtn) saveBtn.addEventListener('click', saveNovel);
-  const cancelBtn = document.getElementById('cancelNovelBtn');
-  if (cancelBtn) cancelBtn.addEventListener('click', () => { editingId = null; render(); });
-}
-
-async function saveNovel() {
-  const body = {
-    title: document.getElementById('fTitle').value.trim(),
-    slug: document.getElementById('fSlug').value.trim(),
-    author: document.getElementById('fAuthor').value.trim(),
-    editor: document.getElementById('fEditor').value.trim(),
-    cover_url: document.getElementById('fCover').value.trim(),
-    status: document.getElementById('fStatus').value,
-    description: document.getElementById('fDesc').value,
-    tags: document.getElementById('fTags').value.split(',').map(s => s.trim()).filter(Boolean),
-    published: document.getElementById('fPublished').checked,
-    label_ids: Array.from(document.querySelectorAll('.chip-toggle.active')).map(c => c.dataset.id),
-  };
-  if (!body.title) { toast('Vui lòng nhập tiêu đề', 'err'); return; }
-
-  try {
-    if (editingId === 'new') {
-      await api('/api/novels', { method: 'POST', body });
-      toast('Đã tạo truyện', 'ok');
-    } else {
-      await api(`/api/novels?id=${editingId}`, { method: 'PUT', body });
-      toast('Đã lưu thay đổi', 'ok');
+        const totalCounts = {};
+        const monthCounts = {};
+        (viewRows || []).forEach((r) => {
+          totalCounts[r.novel_id] = (totalCounts[r.novel_id] || 0) + 1;
+          if (r.viewed_at >= startOfMonthIso) {
+            monthCounts[r.novel_id] = (monthCounts[r.novel_id] || 0) + 1;
+          }
+        });
+        data.forEach((n) => {
+          n.view_count_total = totalCounts[n.id] || 0;
+          n.view_count_month = monthCounts[n.id] || 0;
+        });
+      }
     }
-    editingId = null;
-    await load();
-  } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
-}
 
-async function delNovel(id) {
-  if (!confirm('Xoá truyện này? Toàn bộ chương liên quan cũng sẽ bị xoá.')) return;
-  try {
-    await api(`/api/novels?id=${id}`, { method: 'DELETE' });
-    toast('Đã xoá truyện', 'ok');
-    await load();
-  } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
-}
+    // Nội dung công khai, ít đổi → cho phép CDN/Edge của Vercel cache ngắn hạn.
+    // stale-while-revalidate: người dùng vẫn nhận phản hồi cực nhanh từ cache cũ
+    // trong lúc Vercel âm thầm lấy bản mới ở nền cho lần sau.
+    if (!admin) res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
 
-(async function () { await guardAdmin(); await load(); })();
-</script>
-</body>
-</html>
+    return res.status(200).json({ ok: true, novels: data });
+  }
+
+  // ── Mọi thao tác ghi đều cần admin ──
+  if (!requireAdmin(req, res)) return;
+
+  if (req.method === 'POST') {
+    const b = req.body || {};
+    if (!b.title) return res.status(400).json({ ok: false, reason: 'missing_title' });
+    const slug = b.slug ? slugify(b.slug) : slugify(b.title);
+
+    const { data: novel, error } = await db
+      .from('novels')
+      .insert({
+        title: b.title,
+        slug,
+        author: b.author || null,
+        editor: b.editor || null,
+        description: b.description || null,
+        cover_url: b.cover_url || null,
+        status: b.status || 'ongoing',
+        tags: b.tags || [],
+        published: b.published !== false,
+      })
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+
+    if (Array.isArray(b.label_ids) && b.label_ids.length) {
+      await db.from('novel_labels').insert(
+        b.label_ids.map((label_id) => ({ novel_id: novel.id, label_id }))
+      );
+    }
+    return res.status(200).json({ ok: true, novel });
+  }
+
+  if (req.method === 'PUT') {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ ok: false, reason: 'missing_id' });
+    const b = req.body || {};
+    const patch = {};
+    ['title', 'author', 'editor', 'description', 'cover_url', 'status', 'tags', 'published']
+      .forEach((k) => { if (b[k] !== undefined) patch[k] = b[k]; });
+    if (b.slug) patch.slug = slugify(b.slug);
+
+    const { data, error } = await db.from('novels').update(patch).eq('id', id).select().single();
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+
+    if (Array.isArray(b.label_ids)) {
+      await db.from('novel_labels').delete().eq('novel_id', id);
+      if (b.label_ids.length) {
+        await db.from('novel_labels').insert(b.label_ids.map((label_id) => ({ novel_id: id, label_id })));
+      }
+    }
+    return res.status(200).json({ ok: true, novel: data });
+  }
+
+  if (req.method === 'DELETE') {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ ok: false, reason: 'missing_id' });
+    const { error } = await db.from('novels').delete().eq('id', id);
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+    return res.status(200).json({ ok: true });
+  }
+
+  return res.status(405).json({ ok: false, reason: 'method_not_allowed' });
+};
