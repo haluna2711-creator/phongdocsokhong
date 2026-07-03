@@ -1,335 +1,126 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Đăng chương — Admin</title>
-<link rel="stylesheet" href="/admin/admin.css"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
-</head>
-<body>
-<div id="app"></div>
-<script src="/admin/admin-common.js"></script>
-<script>
-let NOVELS = [];
-let selectedNovelId = new URLSearchParams(location.search).get('novel') || '';
-let DETECTED = [];      // [{title, content, num}]
-let EXISTING = [];      // chương đã có trong DB của truyện đang chọn
-let scheduleDays = [2,3,4,5]; // mặc định Thứ 3–Thứ 6, giống ví dụ Inkitt
-let publishMode = 'scheduled'; // draft | scheduled | publish_now
-let currentVolume = ''; // Quyển áp dụng cho đợt đăng chương này (vd "Quyển 1: Săn Ma")
+const { getSupabaseAdmin } = require('./_lib/supabaseAdmin');
+const { isAdmin, requireAdmin } = require('./_lib/auth');
 
-const DAY_LABELS = ['CN','T2','T3','T4','T5','T6','T7'];
-
-async function load() {
-  const { novels } = await api('/api/novels');
-  NOVELS = novels;
-  if (!selectedNovelId && NOVELS.length) selectedNovelId = NOVELS[0].id;
-  if (selectedNovelId) await loadExisting();
-  render();
+function slugify(str) {
+  return String(str)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
-async function loadExisting() {
-  const { chapters } = await api(`/api/chapters?novel_id=${selectedNovelId}`);
-  EXISTING = chapters.sort((a,b) => Number(b.chapter_number) - Number(a.chapter_number));
-}
+module.exports = async function handler(req, res) {
+  const db = getSupabaseAdmin();
 
-function extractNum(title) {
-  const m = title.match(/(?:chương|ch(?:apter)?\.?)\s*(\d+)|^(\d+)/i);
-  if (m) return parseInt(m[1] || m[2]);
-  const n = title.match(/\d+/);
-  return n ? parseInt(n[0]) : null;
-}
+  if (req.method === 'GET') {
+    const admin = isAdmin(req);
+    const { novel_id, novel_slug, id, slug } = req.query;
+    // Khi lấy 1 chương cụ thể (id hoặc slug) trả về đầy đủ (kèm content).
+    // Khi lấy danh sách (mục lục) chỉ trả trường nhẹ để tránh tải content của cả trăm chương.
+    const single = !!(id || slug);
+    const fields = single
+      ? '*'
+      : 'id, novel_id, title, slug, volume, chapter_number, status, published_at, scheduled_at';
 
-/* ─── Parse 1 file .docx thành {title, content} ─── */
-async function parseDocx(file) {
-  const buf = await file.arrayBuffer();
-  const result = await mammoth.extractRawText({ arrayBuffer: buf });
-  const raw = result.value.replace(/\r\n/g, '\n').trim();
-  const lines = raw.split('\n').map(l => l.trim());
-  const titleIdx = lines.findIndex(l => l.length > 0);
-  const titleLine = titleIdx !== -1 ? lines[titleIdx] : file.name.replace(/\.docx$/i, '');
-  const restLines = titleIdx !== -1 ? lines.slice(titleIdx + 1) : lines;
-  const content = restLines.join('\n').trim();
-  return { title: titleLine, content, num: extractNum(titleLine), _file: file.name };
-}
+    // novel_slug: lọc kèm theo slug truyện ngay trong 1 câu query (join `!inner`),
+    // KHÔNG cần round-trip riêng để đổi slug -> novel_id trước. Trước đây tham số
+    // này bị bỏ qua hoàn toàn nên `slug` (mã chương) có thể trùng giữa 2 truyện
+    // khác nhau và trả nhầm chương — filter theo novel_slug khắc phục luôn lỗi đó.
+    const selectFields = novel_slug ? `${fields}, novels!inner(slug)` : fields;
+    let query = db.from('chapters').select(selectFields);
+    if (id) query = query.eq('id', id);
+    if (slug) query = query.eq('slug', slug);
+    if (novel_id) query = query.eq('novel_id', novel_id);
+    if (novel_slug) query = query.eq('novels.slug', novel_slug);
+    if (!admin) query = query.eq('status', 'published');
+    query = query.order('chapter_number', { ascending: true });
 
-function statusBadge(s) {
-  const label = s === 'draft' ? 'Nháp' : s === 'scheduled' ? 'Đã lên lịch' : 'Đã đăng';
-  return `<span class="status-badge status-${s}">${label}</span>`;
-}
-
-function render() {
-  const novel = NOVELS.find(n => n.id === selectedNovelId);
-
-  mountShell('chapters', `
-    <div class="page-head">
-      <div><h1>Đăng chương</h1><p>Tải file Word hàng loạt, hệ thống tự nhận diện tên chương và lên lịch đăng.</p></div>
-    </div>
-
-    <div class="card">
-      <div class="field" style="max-width:420px">
-        <label>Chọn truyện</label>
-        <select id="novelSelect">
-          ${NOVELS.map(n => `<option value="${n.id}" ${n.id===selectedNovelId?'selected':''}>${escHtml(n.title)}</option>`).join('')}
-        </select>
-      </div>
-    </div>
-
-    ${novel ? renderUploadCard() + renderDetectedCard() + renderScheduleCard() + renderExistingCard() : `<div class="card"><div class="empty">Chưa có truyện nào — tạo truyện trước ở trang "Truyện".</div></div>`}
-  `);
-
-  document.getElementById('novelSelect').addEventListener('change', async (e) => {
-    selectedNovelId = e.target.value;
-    DETECTED = [];
-    await loadExisting();
-    render();
-  });
-
-  if (novel) bindInteractivity();
-}
-
-function renderUploadCard() {
-  return `
-    <div class="card">
-      <h2>1. Tải file Word (.docx)</h2>
-      <div class="dropzone" id="dropzone">
-        <div class="icon">⇧</div>
-        <p>Kéo thả nhiều file .docx vào đây, hoặc bấm để chọn file</p>
-        <small>Dòng đầu tiên mỗi file được dùng làm tên chương, phần còn lại là nội dung.</small>
-        <input type="file" id="fileInput" accept=".docx" multiple style="display:none"/>
-      </div>
-    </div>`;
-}
-
-function renderDetectedCard() {
-  if (!DETECTED.length) return '';
-  return `
-    <div class="card">
-      <h2>2. Chương đã nhận diện (${DETECTED.length})</h2>
-      <p class="hint" style="margin-bottom:12px">Sắp xếp theo đúng thứ tự muốn đăng. Có thể sửa tên chương trước khi lưu.</p>
-      <div class="field" style="max-width:420px;margin-bottom:16px">
-        <label>Quyển (tuỳ chọn — áp dụng cho cả ${DETECTED.length} chương này)</label>
-        <input type="text" id="volumeInput" value="${escHtml(currentVolume)}" placeholder="VD: Quyển 1: Săn Ma"/>
-      </div>
-      <div id="detectedList">
-        ${DETECTED.map((d, i) => `
-          <div class="det-item" data-idx="${i}">
-            <span class="num mono">#${i+1}</span>
-            <input type="text" class="det-title" value="${escHtml(d.title)}"/>
-            <span class="meta">${d.content.length} ký tự</span>
-            <div class="actions">
-              <button class="icon-btn" data-up="${i}" title="Lên">↑</button>
-              <button class="icon-btn" data-down="${i}" title="Xuống">↓</button>
-              <button class="icon-btn" data-remove="${i}" title="Bỏ">✕</button>
-            </div>
-          </div>`).join('')}
-      </div>
-    </div>`;
-}
-
-function renderScheduleCard() {
-  if (!DETECTED.length) return '';
-  return `
-    <div class="card">
-      <h2>3. Cách đăng</h2>
-      <div class="checkbox-row" style="margin-bottom:16px">
-        <span class="chip-toggle mode-chip ${publishMode==='draft'?'active':''}" data-mode="draft">Lưu nháp</span>
-        <span class="chip-toggle mode-chip ${publishMode==='scheduled'?'active':''}" data-mode="scheduled">Lên lịch tự động</span>
-        <span class="chip-toggle mode-chip ${publishMode==='publish_now'?'active':''}" data-mode="publish_now">Đăng ngay tất cả</span>
-      </div>
-
-      ${publishMode === 'scheduled' ? `
-        <div class="grid-2">
-          <div class="field">
-            <label>Các ngày đăng trong tuần</label>
-            <div class="checkbox-row" id="dayChips">
-              ${DAY_LABELS.map((l, i) => `<span class="chip-toggle day-chip ${scheduleDays.includes(i)?'active':''}" data-day="${i}">${l}</span>`).join('')}
-            </div>
-          </div>
-          <div class="field">
-            <label>Giờ đăng</label>
-            <input type="time" id="timeOfDay" value="17:00"/>
-          </div>
-          <div class="field">
-            <label>Múi giờ</label>
-            <select id="timezone">
-              <option value="Asia/Bangkok" selected>Asia/Bangkok (UTC+7)</option>
-              <option value="Asia/Ho_Chi_Minh">Asia/Ho_Chi_Minh (UTC+7)</option>
-              <option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option>
-              <option value="UTC">UTC</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Số chương / mỗi lần đăng</label>
-            <input type="number" id="chaptersPerSlot" value="1" min="1"/>
-          </div>
-          <div class="field" style="grid-column:1/-1">
-            <label>Bắt đầu lịch từ</label>
-            <select id="startFrom">
-              <option value="now">Ngay từ hôm nay (mốc gần nhất phù hợp)</option>
-              <option value="after_last">Sau chương đã lên lịch/đăng gần nhất của truyện này</option>
-            </select>
-          </div>
-        </div>
-        <p class="hint">Ví dụ: chọn T3–T6, giờ 17:06 ⇒ mỗi Thứ 3, 4, 5, 6 sẽ tự động đăng 1 chương, giống lịch của Inkitt.</p>
-      ` : ''}
-
-      <div style="margin-top:16px">
-        <button class="btn btn-gold" id="submitBtn">
-          ${publishMode === 'draft' ? 'Lưu nháp' : publishMode === 'publish_now' ? `Đăng ngay ${DETECTED.length} chương` : `Lên lịch ${DETECTED.length} chương`}
-        </button>
-      </div>
-    </div>`;
-}
-
-function renderExistingCard() {
-  return `
-    <div class="card">
-      <h2>Chương hiện có (${EXISTING.length})</h2>
-      ${EXISTING.length ? `
-        <table>
-          <thead><tr><th>#</th><th>Tên chương</th><th>Trạng thái</th><th>Thời gian</th><th></th></tr></thead>
-          <tbody>
-            ${EXISTING.map(c => `
-              <tr>
-                <td class="mono">${c.chapter_number}</td>
-                <td>${escHtml(c.title)}</td>
-                <td>${statusBadge(c.status)}</td>
-                <td class="mono" style="color:var(--muted);font-size:12.5px">
-                  ${c.status === 'published' ? fmtDate(c.published_at) : c.status === 'scheduled' ? fmtDate(c.scheduled_at) : '—'}
-                </td>
-                <td style="text-align:right;white-space:nowrap">
-                  ${c.status !== 'published' ? `<button class="btn btn-sm" data-publish="${c.id}">Đăng ngay</button>` : `<button class="btn btn-sm" data-unpublish="${c.id}">Gỡ đăng</button>`}
-                  <button class="btn btn-sm btn-danger" data-delch="${c.id}">Xoá</button>
-                </td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      ` : `<div class="empty">Truyện này chưa có chương nào.</div>`}
-    </div>`;
-}
-
-function bindInteractivity() {
-  const dz = document.getElementById('dropzone');
-  const fileInput = document.getElementById('fileInput');
-  if (dz) {
-    dz.addEventListener('click', () => fileInput.click());
-    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
-    dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
-    dz.addEventListener('drop', e => {
-      e.preventDefault(); dz.classList.remove('drag');
-      handleFiles(e.dataTransfer.files);
-    });
-    fileInput.addEventListener('change', e => handleFiles(e.target.files));
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+    // Bỏ field novels lồng vào (chỉ dùng để lọc) trước khi trả về cho client.
+    const cleaned = novel_slug ? (data || []).map(({ novels, ...rest }) => rest) : data;
+    // Nội dung chương đã published ít đổi → cho phép cache ngắn hạn ở CDN/Edge,
+    // giúp các lượt đọc sau (đặc biệt chương hot) trả về gần như tức thì.
+    if (!admin) res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
+    return res.status(200).json({ ok: true, chapters: cleaned });
   }
 
-  const volInput = document.getElementById('volumeInput');
-  if (volInput) volInput.addEventListener('input', e => { currentVolume = e.target.value; });
+  if (!requireAdmin(req, res)) return;
 
-  document.querySelectorAll('.det-title').forEach(inp => {
-    inp.addEventListener('input', e => {
-      const idx = e.target.closest('.det-item').dataset.idx;
-      DETECTED[idx].title = e.target.value;
-    });
-  });
-  document.querySelectorAll('[data-up]').forEach(b => b.addEventListener('click', () => moveDetected(+b.dataset.up, -1)));
-  document.querySelectorAll('[data-down]').forEach(b => b.addEventListener('click', () => moveDetected(+b.dataset.down, 1)));
-  document.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => { DETECTED.splice(+b.dataset.remove, 1); render(); }));
+  if (req.method === 'POST') {
+    const b = req.body || {};
+    if (!b.novel_id || !b.title) return res.status(400).json({ ok: false, reason: 'missing_fields' });
 
-  document.querySelectorAll('.mode-chip').forEach(chip => {
-    chip.addEventListener('click', () => { publishMode = chip.dataset.mode; render(); });
-  });
-  document.querySelectorAll('.day-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const d = +chip.dataset.day;
-      scheduleDays = scheduleDays.includes(d) ? scheduleDays.filter(x => x !== d) : [...scheduleDays, d];
-      render();
-    });
-  });
-
-  const submitBtn = document.getElementById('submitBtn');
-  if (submitBtn) submitBtn.addEventListener('click', submitBulk);
-
-  document.querySelectorAll('[data-publish]').forEach(b => b.addEventListener('click', () => setChapterStatus(b.dataset.publish, 'published')));
-  document.querySelectorAll('[data-unpublish]').forEach(b => b.addEventListener('click', () => setChapterStatus(b.dataset.unpublish, 'draft')));
-  document.querySelectorAll('[data-delch]').forEach(b => b.addEventListener('click', () => delChapter(b.dataset.delch)));
-}
-
-async function handleFiles(fileList) {
-  const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.docx'));
-  if (!files.length) { toast('Vui lòng chọn file .docx', 'err'); return; }
-  toast(`Đang đọc ${files.length} file...`);
-  for (const f of files) {
-    try {
-      const parsed = await parseDocx(f);
-      DETECTED.push(parsed);
-    } catch (e) {
-      toast(`Lỗi đọc ${f.name}: ${e.message}`, 'err');
+    let chapterNumber = b.chapter_number;
+    if (chapterNumber === undefined || chapterNumber === null) {
+      const { data: maxRow } = await db
+        .from('chapters').select('chapter_number')
+        .eq('novel_id', b.novel_id)
+        .order('chapter_number', { ascending: false }).limit(1).maybeSingle();
+      chapterNumber = maxRow ? Number(maxRow.chapter_number) + 1 : 1;
     }
-  }
-  // sắp xếp theo số chương phát hiện được (nếu có), file nào không phát hiện được giữ nguyên cuối
-  DETECTED.sort((a, b) => (a.num ?? 99999) - (b.num ?? 99999));
-  render();
-}
 
-function moveDetected(idx, dir) {
-  const j = idx + dir;
-  if (j < 0 || j >= DETECTED.length) return;
-  [DETECTED[idx], DETECTED[j]] = [DETECTED[j], DETECTED[idx]];
-  render();
-}
+    const { data, error } = await db.from('chapters').insert({
+      novel_id: b.novel_id,
+      title: b.title,
+      slug: b.slug ? slugify(b.slug) : slugify(b.title),
+      volume: b.volume || null,
+      content: b.content || '',
+      chapter_number: chapterNumber,
+      status: b.status || 'draft',
+      scheduled_at: b.scheduled_at || null,
+      published_at: b.status === 'published' ? new Date().toISOString() : null,
+    }).select().single();
 
-async function submitBulk() {
-  if (!DETECTED.length) return;
-  const body = {
-    novel_id: selectedNovelId,
-    mode: publishMode,
-    chapters: DETECTED.map(d => ({ title: d.title, content: d.content, volume: currentVolume || undefined })),
-  };
-  if (publishMode === 'scheduled') {
-    if (!scheduleDays.length) { toast('Chọn ít nhất 1 ngày trong tuần', 'err'); return; }
-    body.schedule = {
-      daysOfWeek: scheduleDays,
-      timeOfDay: document.getElementById('timeOfDay').value || '17:00',
-      timezone: document.getElementById('timezone').value,
-      chaptersPerSlot: parseInt(document.getElementById('chaptersPerSlot').value || '1', 10),
-      startFrom: document.getElementById('startFrom').value,
-    };
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+
+    // Đánh dấu truyện vừa có chương mới → mục "Truyện Mới Cập Nhật" nhận được.
+    await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', data.novel_id);
+
+    return res.status(200).json({ ok: true, chapter: data });
   }
 
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = true; btn.textContent = 'Đang lưu...';
-  try {
-    const { chapters } = await api('/api/chapters-bulk', { method: 'POST', body });
-    toast(`Đã lưu ${chapters.length} chương`, 'ok');
-    DETECTED = [];
-    await loadExisting();
-    render();
-  } catch (e) {
-    toast('Lỗi: ' + e.message, 'err');
-    btn.disabled = false;
+  if (req.method === 'PUT') {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ ok: false, reason: 'missing_id' });
+    const b = req.body || {};
+    const patch = {};
+    ['title', 'volume', 'content', 'chapter_number', 'status', 'scheduled_at']
+      .forEach((k) => { if (b[k] !== undefined) patch[k] = b[k]; });
+    if (b.slug) patch.slug = slugify(b.slug);
+    if (patch.status === 'published') {
+      patch.published_at = new Date().toISOString();
+      patch.scheduled_at = null;
+    }
+    if (patch.status === 'draft') {
+      patch.scheduled_at = null;
+    }
+
+    const { data, error } = await db.from('chapters').update(patch).eq('id', id).select().single();
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+
+    // Sửa nội dung / đăng tải chương cũng tính là "cập nhật truyện".
+    await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', data.novel_id);
+
+    return res.status(200).json({ ok: true, chapter: data });
   }
-}
 
-async function setChapterStatus(id, status) {
-  try {
-    await api(`/api/chapters?id=${id}`, { method: 'PUT', body: { status } });
-    toast(status === 'published' ? 'Đã đăng chương' : 'Đã gỡ đăng', 'ok');
-    await loadExisting(); render();
-  } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
-}
+  if (req.method === 'DELETE') {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ ok: false, reason: 'missing_id' });
 
-async function delChapter(id) {
-  if (!confirm('Xoá chương này?')) return;
-  try {
-    await api(`/api/chapters?id=${id}`, { method: 'DELETE' });
-    toast('Đã xoá chương', 'ok');
-    await loadExisting(); render();
-  } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
-}
+    // Lấy novel_id trước khi xoá để có thể chạm updated_at của truyện cha.
+    const { data: existing } = await db.from('chapters').select('novel_id').eq('id', id).maybeSingle();
 
-(async function () { await guardAdmin(); await load(); })();
-</script>
-</body>
-</html>
+    const { error } = await db.from('chapters').delete().eq('id', id);
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+
+    if (existing?.novel_id) {
+      await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', existing.novel_id);
+    }
+    return res.status(200).json({ ok: true });
+  }
+
+  return res.status(405).json({ ok: false, reason: 'method_not_allowed' });
+};
