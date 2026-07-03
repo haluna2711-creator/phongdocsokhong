@@ -1,0 +1,324 @@
+diff --git a/admin/admin-common.js b/admin/admin-common.js
+index 7bcda0c..d638d27 100644
+--- a/admin/admin-common.js
++++ b/admin/admin-common.js
+@@ -74,6 +74,34 @@ function mountShell(active, mainHtml) {
+   });
+ }
+ 
++// ── Khởi động chuẩn cho mọi trang admin ──
++// - Hiện khung sườn (sidebar) + trạng thái "Đang tải…" NGAY LẬP TỨC thay vì
++//   để #app trắng trong lúc chờ mạng → cảm giác trang phản hồi nhanh hơn hẳn.
++// - Chạy guardAdmin() (kiểm tra đăng nhập) và loadFn() (tải dữ liệu trang)
++//   SONG SONG thay vì nối tiếp — trước đây mỗi trang admin phải chờ xong
++//   guardAdmin() rồi mới bắt đầu gọi loadFn(), tốn gấp đôi thời gian round-trip.
++// - Nếu loadFn() lỗi (mất mạng, API lỗi...) sẽ hiện thông báo lỗi + nút "Thử lại"
++//   thay vì để trang trắng không rõ nguyên nhân (lỗi hay gặp ở trang Bình luận
++//   vì phụ thuộc dịch vụ ngoài — Google Apps Script — dễ timeout/lỗi hơn các
++//   trang khác dùng Supabase).
++async function bootAdmin(active, loadFn) {
++  mountShell(active, `<div class="card"><div class="empty">Đang tải…</div></div>`);
++  try {
++    await Promise.all([guardAdmin(), loadFn()]);
++  } catch (err) {
++    console.error(err);
++    mountShell(active, `
++      <div class="card">
++        <div class="empty" style="color:#ff6b6b">
++          Không tải được dữ liệu: ${escHtml(err && err.message ? err.message : String(err))}
++          <div style="margin-top:12px"><button class="btn btn-gold" id="pdsRetryBtn">Thử lại</button></div>
++        </div>
++      </div>`);
++    const retryBtn = document.getElementById('pdsRetryBtn');
++    if (retryBtn) retryBtn.addEventListener('click', () => bootAdmin(active, loadFn));
++  }
++}
++
+ function escHtml(s) {
+   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+ }
+diff --git a/admin/chapters.html b/admin/chapters.html
+index 799e143..25235c7 100644
+--- a/admin/chapters.html
++++ b/admin/chapters.html
+@@ -22,10 +22,21 @@ let currentVolume = ''; // Quyển áp dụng cho đợt đăng chương này (v
+ const DAY_LABELS = ['CN','T2','T3','T4','T5','T6','T7'];
+ 
+ async function load() {
+-  const { novels } = await api('/api/novels');
+-  NOVELS = novels;
++  // Nếu URL đã có ?novel=id (vd. bấm từ trang Truyện) thì gọi song song
++  // /api/novels và /api/chapters ngay từ đầu thay vì chờ /api/novels xong
++  // rồi mới gọi /api/chapters — tiết kiệm 1 vòng round-trip mạng.
++  const preselected = selectedNovelId;
++  const [n, ex] = await Promise.all([
++    api('/api/novels'),
++    preselected ? api(`/api/chapters?novel_id=${preselected}`) : Promise.resolve(null),
++  ]);
++  NOVELS = n.novels;
+   if (!selectedNovelId && NOVELS.length) selectedNovelId = NOVELS[0].id;
+-  if (selectedNovelId) await loadExisting();
++  if (ex) {
++    EXISTING = ex.chapters.sort((a, b) => Number(b.chapter_number) - Number(a.chapter_number));
++  } else if (selectedNovelId) {
++    await loadExisting();
++  }
+   render();
+ }
+ 
+@@ -329,7 +340,7 @@ async function delChapter(id) {
+   } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+ }
+ 
+-(async function () { await guardAdmin(); await load(); })();
++bootAdmin('chapters', load);
+ </script>
+ </body>
+ </html>
+diff --git a/admin/comments.html b/admin/comments.html
+index 367d242..06479ca 100644
+--- a/admin/comments.html
++++ b/admin/comments.html
+@@ -154,7 +154,7 @@ async function sendReply(parentId, postUrl, postTitle) {
+   } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+ }
+ 
+-(async function () { await guardAdmin(); await load(); })();
++bootAdmin('comments', load);
+ </script>
+ </body>
+ </html>
+diff --git a/admin/index.html b/admin/index.html
+index e7d7c7b..4480ab9 100644
+--- a/admin/index.html
++++ b/admin/index.html
+@@ -10,9 +10,7 @@
+ <div id="app"></div>
+ <script src="/admin/admin-common.js"></script>
+ <script>
+-(async function () {
+-  await guardAdmin();
+-
++async function load() {
+   mountShell('dashboard', `
+     <div class="page-head">
+       <div><h1>Tổng quan</h1><p>Chào mừng trở lại.</p></div>
+@@ -32,20 +30,33 @@
+     </div>
+   `);
+ 
++  // TRƯỚC ĐÂY: gọi /api/chapters?novel_id=... LẶP LẠI cho từng truyện, TUẦN TỰ
++  // (vòng lặp for...await). Với N truyện là N lần round-trip nối tiếp tới
++  // serverless function — đây là nguyên nhân chính khiến trang Tổng quan
++  // (trang vào đầu tiên sau khi đăng nhập) load rất chậm khi thư viện có
++  // nhiều truyện. Sửa lại: gọi 1 lần /api/chapters (không lọc novel_id) để
++  // lấy TOÀN BỘ chương, rồi đếm bằng JS ở client — chỉ còn 1 round-trip
++  // duy nhất thay vì N+1.
+   try {
+-    const { novels } = await api('/api/novels');
++    const [{ novels }, { chapters }] = await Promise.all([
++      api('/api/novels'),
++      api('/api/chapters'),
++    ]);
+     document.getElementById('statNovels').textContent = novels.length;
+ 
+     let published = 0, scheduled = 0;
+-    for (const n of novels) {
+-      const { chapters } = await api(`/api/chapters?novel_id=${n.id}`);
+-      published += chapters.filter(c => c.status === 'published').length;
+-      scheduled += chapters.filter(c => c.status === 'scheduled').length;
++    for (const c of chapters) {
++      if (c.status === 'published') published++;
++      else if (c.status === 'scheduled') scheduled++;
+     }
+     document.getElementById('statPublished').textContent = published;
+     document.getElementById('statScheduled').textContent = scheduled;
+-  } catch (e) { toast('Không tải được thống kê', 'err'); }
+-})();
++  } catch (e) {
++    toast('Không tải được thống kê: ' + e.message, 'err');
++  }
++}
++
++bootAdmin('dashboard', load);
+ </script>
+ </body>
+ </html>
+diff --git a/admin/labels.html b/admin/labels.html
+index 7e5a66f..a70662d 100644
+--- a/admin/labels.html
++++ b/admin/labels.html
+@@ -82,7 +82,7 @@ async function delLabel(id) {
+   } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+ }
+ 
+-(async function () { await guardAdmin(); await load(); })();
++bootAdmin('labels', load);
+ </script>
+ </body>
+ </html>
+diff --git a/admin/novels.html b/admin/novels.html
+index 840d792..7abb663 100644
+--- a/admin/novels.html
++++ b/admin/novels.html
+@@ -155,7 +155,7 @@ async function delNovel(id) {
+   } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+ }
+ 
+-(async function () { await guardAdmin(); await load(); })();
++bootAdmin('novels', load);
+ </script>
+ </body>
+ </html>
+diff --git a/api/comments.js b/api/comments.js
+index 89b3045..274679b 100644
+--- a/api/comments.js
++++ b/api/comments.js
+@@ -19,14 +19,40 @@ function gasUrl(action, params) {
+   return `${base}?${qs.toString()}`;
+ }
+ 
++// Google Apps Script đôi khi bị "cold start" hoặc treo lâu bất thường.
++// Nếu không giới hạn thời gian, request có thể treo tới khi Vercel tự
++// timeout function (không có thông báo lỗi rõ ràng, admin thấy trang
++// "không hiển thị gì"). Đặt timeout ngắn hơn để luôn trả lỗi rõ ràng.
++async function fetchGas(url, timeoutMs = 9000) {
++  const controller = new AbortController();
++  const t = setTimeout(() => controller.abort(), timeoutMs);
++  try {
++    const r = await fetch(url, { signal: controller.signal });
++    const text = await r.text();
++    try {
++      return JSON.parse(text);
++    } catch (_) {
++      // GAS trả về không phải JSON — thường là do deployment sai quyền
++      // ("Who has access" khác "Anyone") nên Google trả về trang đăng nhập HTML.
++      throw new Error('Apps Script không trả về JSON hợp lệ (kiểm tra lại quyền truy cập của deployment).');
++    }
++  } catch (err) {
++    if (err.name === 'AbortError') {
++      throw new Error('Apps Script phản hồi quá chậm (quá ' + Math.round(timeoutMs / 1000) + 's).');
++    }
++    throw err;
++  } finally {
++    clearTimeout(t);
++  }
++}
++
+ module.exports = async function handler(req, res) {
+   if (!requireAdmin(req, res)) return;
+ 
+   try {
+     if (req.method === 'GET') {
+       const postUrl = req.query.postUrl || '';
+-      const r = await fetch(gasUrl('adminList', postUrl ? { postUrl } : {}));
+-      const data = await r.json();
++      const data = await fetchGas(gasUrl('adminList', postUrl ? { postUrl } : {}));
+       if (!data.ok) return res.status(502).json({ ok: false, reason: data.error || 'gas_error' });
+       return res.status(200).json({ ok: true, comments: data.data });
+     }
+@@ -34,8 +60,7 @@ module.exports = async function handler(req, res) {
+     if (req.method === 'DELETE') {
+       const { id } = req.query;
+       if (!id) return res.status(400).json({ ok: false, reason: 'missing_id' });
+-      const r = await fetch(gasUrl('adminDelete', { id }));
+-      const data = await r.json();
++      const data = await fetchGas(gasUrl('adminDelete', { id }));
+       if (!data.ok) return res.status(502).json({ ok: false, reason: data.error || 'gas_error' });
+       return res.status(200).json({ ok: true });
+     }
+@@ -45,14 +70,13 @@ module.exports = async function handler(req, res) {
+       if (!postUrl || !parentId || !body) {
+         return res.status(400).json({ ok: false, reason: 'missing_fields' });
+       }
+-      const r = await fetch(gasUrl('adminReply', {
++      const data = await fetchGas(gasUrl('adminReply', {
+         postUrl,
+         postTitle: postTitle || '',
+         parentId,
+         body,
+         name: name || 'Quản trị viên',
+       }));
+-      const data = await r.json();
+       if (!data.ok) return res.status(502).json({ ok: false, reason: data.error || 'gas_error' });
+       return res.status(200).json({ ok: true, id: data.id });
+     }
+diff --git a/api/novels.js b/api/novels.js
+index 64a48c3..493d19a 100644
+--- a/api/novels.js
++++ b/api/novels.js
+@@ -33,43 +33,43 @@ module.exports = async function handler(req, res) {
+     const { data, error } = await query;
+     if (error) return res.status(500).json({ ok: false, reason: error.message });
+ 
+-    if (!isLight) {
++    if (!isLight && data && data.length) {
++      // Đếm số chương + đếm lượt xem là 2 truy vấn ĐỘC LẬP với nhau — trước đây
++      // chạy tuần tự (await lần lượt) khiến tổng thời gian chờ = tổng 2 truy vấn.
++      // Chạy song song bằng Promise.all để tổng thời gian chờ ≈ truy vấn chậm nhất.
++      const novelIds = data.map((n) => n.id);
++      let cq = db.from('chapters').select('novel_id, status').in('novel_id', novelIds);
++      if (!admin) cq = cq.eq('status', 'published');
++
++      const now = new Date();
++      const startOfMonthIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
++
++      const [{ data: chRows }, { data: viewRows }] = await Promise.all([
++        cq,
++        db.from('novel_views').select('novel_id, viewed_at').in('novel_id', novelIds),
++      ]);
++
+       // Đính kèm số chương cho mỗi truyện (dùng cho danh sách admin + trang truyện)
+-      if (data && data.length) {
+-        let cq = db.from('chapters').select('novel_id, status').in('novel_id', data.map((n) => n.id));
+-        if (!admin) cq = cq.eq('status', 'published');
+-        const { data: chRows } = await cq;
+-        const counts = {};
+-        (chRows || []).forEach((r) => { counts[r.novel_id] = (counts[r.novel_id] || 0) + 1; });
+-        data.forEach((n) => { n.chapter_count = counts[n.id] || 0; });
+-      }
++      const counts = {};
++      (chRows || []).forEach((r) => { counts[r.novel_id] = (counts[r.novel_id] || 0) + 1; });
++      data.forEach((n) => { n.chapter_count = counts[n.id] || 0; });
+ 
+       // Đính kèm số lượt xem (tổng + trong tháng hiện tại) cho mỗi truyện.
+       // Dùng cho: mục "Nổi Bật" (xem nhiều trong tháng) và mục "Thư Viện Truyện"
+       // (đọc nhiều nhất mỗi thể loại). Nguồn dữ liệu: bảng novel_views,
+       // mỗi dòng là 1 lượt xem được ghi qua POST /api/views.
+-      if (data && data.length) {
+-        const now = new Date();
+-        const startOfMonthIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+-
+-        const { data: viewRows } = await db
+-          .from('novel_views')
+-          .select('novel_id, viewed_at')
+-          .in('novel_id', data.map((n) => n.id));
+-
+-        const totalCounts = {};
+-        const monthCounts = {};
+-        (viewRows || []).forEach((r) => {
+-          totalCounts[r.novel_id] = (totalCounts[r.novel_id] || 0) + 1;
+-          if (r.viewed_at >= startOfMonthIso) {
+-            monthCounts[r.novel_id] = (monthCounts[r.novel_id] || 0) + 1;
+-          }
+-        });
+-        data.forEach((n) => {
+-          n.view_count_total = totalCounts[n.id] || 0;
+-          n.view_count_month = monthCounts[n.id] || 0;
+-        });
+-      }
++      const totalCounts = {};
++      const monthCounts = {};
++      (viewRows || []).forEach((r) => {
++        totalCounts[r.novel_id] = (totalCounts[r.novel_id] || 0) + 1;
++        if (r.viewed_at >= startOfMonthIso) {
++          monthCounts[r.novel_id] = (monthCounts[r.novel_id] || 0) + 1;
++        }
++      });
++      data.forEach((n) => {
++        n.view_count_total = totalCounts[n.id] || 0;
++        n.view_count_month = monthCounts[n.id] || 0;
++      });
+     }
+ 
+     // Nội dung công khai, ít đổi → cho phép CDN/Edge của Vercel cache ngắn hạn.
