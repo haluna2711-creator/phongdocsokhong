@@ -1,0 +1,51 @@
+// ════════════════════════════════════
+// PHÒNG ĐỌC SỐ 0 — API Reaction theo chương (Supabase)
+// Dùng bởi js/reactions-comments.js. Không cần đăng nhập.
+// ════════════════════════════════════
+
+const { getSupabaseAdmin } = require('./_lib/supabaseAdmin');
+
+const ALLOWED_TYPES = ['love', 'fire', 'cry', 'shock', 'star'];
+
+async function countsFor(db, postKey) {
+  const { data, error } = await db.from('reactions').select('type').eq('post_key', postKey);
+  if (error) throw new Error(error.message);
+  const counts = {};
+  (data || []).forEach((r) => { counts[r.type] = (counts[r.type] || 0) + 1; });
+  return counts;
+}
+
+module.exports = async function handler(req, res) {
+  const db = getSupabaseAdmin();
+
+  if (req.method === 'GET') {
+    const postKey = String(req.query.post || '').trim();
+    if (!postKey) return res.status(400).json({ ok: false, reason: 'missing_post' });
+    try {
+      const counts = await countsFor(db, postKey);
+      return res.status(200).json({ ok: true, counts });
+    } catch (e) {
+      return res.status(500).json({ ok: false, reason: e.message });
+    }
+  }
+
+  if (req.method === 'POST') {
+    const b = req.body || {};
+    const postKey = String(b.post || '').trim();
+    const type = String(b.type || '').trim();
+    if (!postKey || !ALLOWED_TYPES.includes(type)) {
+      return res.status(400).json({ ok: false, reason: 'invalid_fields' });
+    }
+    const { error } = await db.from('reactions').insert({ post_key: postKey, type });
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+
+    try {
+      const counts = await countsFor(db, postKey);
+      return res.status(200).json({ ok: true, counts });
+    } catch (e) {
+      return res.status(500).json({ ok: false, reason: e.message });
+    }
+  }
+
+  return res.status(405).json({ ok: false, reason: 'method_not_allowed' });
+};
