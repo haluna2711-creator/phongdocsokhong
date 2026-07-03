@@ -1,113 +1,80 @@
 // ════════════════════════════════════
-// PHÒNG ĐỌC SỐ 0 — Admin common helpers
+// PHÒNG ĐỌC SỐ 0 — API Bình luận (ADMIN, Supabase)
+// Dùng bởi admin/comments.html. Mọi thao tác đều yêu cầu đã đăng nhập admin.
 // ════════════════════════════════════
 
-async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-    ...opts,
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  let data = null;
-  try { data = await res.json(); } catch (_) {}
-  if (!res.ok) {
-    if (res.status === 401) { window.location.href = '/admin/login.html'; }
-    throw new Error((data && data.reason) || `HTTP ${res.status}`);
+const { getSupabaseAdmin } = require('./_lib/supabaseAdmin');
+const { requireAdmin } = require('./_lib/auth');
+
+function mapRow(r) {
+  return {
+    id: r.id,
+    postUrl: r.post_url,
+    postTitle: r.post_title,
+    name: r.name,
+    body: r.body,
+    ts: Number(r.ts),
+    parentId: r.parent_id || null,
+    isAdmin: !!r.is_admin,
+    deleted: !!r.deleted,
+  };
+}
+
+module.exports = async function handler(req, res) {
+  if (!requireAdmin(req, res)) return;
+  const db = getSupabaseAdmin();
+
+  if (req.method === 'GET') {
+    const postUrl = String(req.query.postUrl || '').trim();
+    let query = db
+      .from('comments')
+      .select('id, post_url, post_title, name, body, ts, parent_id, is_admin, deleted')
+      .order('ts', { ascending: true });
+    if (postUrl) query = query.eq('post_url', postUrl);
+
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+    return res.status(200).json({ ok: true, comments: (data || []).map(mapRow) });
   }
-  return data;
-}
 
-async function guardAdmin() {
-  try {
-    const r = await api('/api/admin-session');
-    if (!r.ok) window.location.href = '/admin/login.html';
-  } catch (_) {
-    window.location.href = '/admin/login.html';
+  if (req.method === 'DELETE') {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ ok: false, reason: 'missing_id' });
+    const { error } = await db.from('comments').update({ deleted: true }).eq('id', id);
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+    return res.status(200).json({ ok: true });
   }
-}
 
-function toast(msg, type = '') {
-  let el = document.getElementById('pdsToast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'pdsToast';
-    el.className = 'toast';
-    document.body.appendChild(el);
+  if (req.method === 'POST') {
+    const b = req.body || {};
+    const postUrl = String(b.postUrl || '').trim();
+    const postTitle = String(b.postTitle || '').trim();
+    const parentId = b.parentId ? String(b.parentId) : null;
+    const body = String(b.body || '').trim().slice(0, 2000);
+    const name = String(b.name || 'Quản trị viên').trim().slice(0, 60) || 'Quản trị viên';
+
+    if (!postUrl || !parentId || !body) {
+      return res.status(400).json({ ok: false, reason: 'missing_fields' });
+    }
+
+    const { data, error } = await db
+      .from('comments')
+      .insert({
+        post_url: postUrl,
+        post_title: postTitle || null,
+        name,
+        body,
+        ts: Date.now(),
+        parent_id: parentId,
+        is_admin: true,
+        deleted: false,
+      })
+      .select('id')
+      .single();
+
+    if (error) return res.status(500).json({ ok: false, reason: error.message });
+    return res.status(200).json({ ok: true, id: data.id });
   }
-  el.textContent = msg;
-  el.className = 'toast show' + (type ? ' ' + type : '');
-  clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('show'), 3200);
-}
 
-function renderSidebar(active) {
-  const items = [
-    { href: '/admin/index.html', label: 'Tổng quan', key: 'dashboard' },
-    { href: '/admin/novels.html', label: 'Truyện', key: 'novels' },
-    { href: '/admin/labels.html', label: 'Thể loại', key: 'labels' },
-    { href: '/admin/chapters.html', label: 'Đăng chương', key: 'chapters' },
-    { href: '/admin/comments.html', label: 'Bình luận', key: 'comments' },
-  ];
-  const nav = items.map(i =>
-    `<a href="${i.href}" class="${i.key === active ? 'active' : ''}">${i.label}</a>`
-  ).join('');
-  return `
-    <div id="sidebar">
-      <div class="brand">✦ Phòng Đọc Số 0</div>
-      ${nav}
-      <div class="spacer"></div>
-      <span class="logout" id="pdsLogoutBtn">Đăng xuất</span>
-    </div>`;
-}
-
-function mountShell(active, mainHtml) {
-  document.getElementById('app').innerHTML = `
-    <div id="shell">
-      ${renderSidebar(active)}
-      <main>${mainHtml}</main>
-    </div>`;
-  const btn = document.getElementById('pdsLogoutBtn');
-  if (btn) btn.addEventListener('click', async () => {
-    await api('/api/admin-logout', { method: 'POST' });
-    window.location.href = '/admin/login.html';
-  });
-}
-
-// ── Khởi động chuẩn cho mọi trang admin ──
-// - Hiện khung sườn (sidebar) + trạng thái "Đang tải…" NGAY LẬP TỨC thay vì
-//   để #app trắng trong lúc chờ mạng → cảm giác trang phản hồi nhanh hơn hẳn.
-// - Chạy guardAdmin() (kiểm tra đăng nhập) và loadFn() (tải dữ liệu trang)
-//   SONG SONG thay vì nối tiếp — trước đây mỗi trang admin phải chờ xong
-//   guardAdmin() rồi mới bắt đầu gọi loadFn(), tốn gấp đôi thời gian round-trip.
-// - Nếu loadFn() lỗi (mất mạng, API lỗi...) sẽ hiện thông báo lỗi + nút "Thử lại"
-//   thay vì để trang trắng không rõ nguyên nhân (lỗi hay gặp ở trang Bình luận
-//   vì phụ thuộc dịch vụ ngoài — Google Apps Script — dễ timeout/lỗi hơn các
-//   trang khác dùng Supabase).
-async function bootAdmin(active, loadFn) {
-  mountShell(active, `<div class="card"><div class="empty">Đang tải…</div></div>`);
-  try {
-    await Promise.all([guardAdmin(), loadFn()]);
-  } catch (err) {
-    console.error(err);
-    mountShell(active, `
-      <div class="card">
-        <div class="empty" style="color:#ff6b6b">
-          Không tải được dữ liệu: ${escHtml(err && err.message ? err.message : String(err))}
-          <div style="margin-top:12px"><button class="btn btn-gold" id="pdsRetryBtn">Thử lại</button></div>
-        </div>
-      </div>`);
-    const retryBtn = document.getElementById('pdsRetryBtn');
-    if (retryBtn) retryBtn.addEventListener('click', () => bootAdmin(active, loadFn));
-  }
-}
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function fmtDate(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
-}
+  return res.status(405).json({ ok: false, reason: 'method_not_allowed' });
+};
