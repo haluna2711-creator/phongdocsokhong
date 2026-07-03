@@ -64,17 +64,21 @@ window.initReactionsComments = function initReactionsComments() {
     saveVoted(type);
     renderReactions(currentCounts, type);
     showReactionMsg(type);
-    fetch(`${PDS_CONFIG.REACT_URL}?action=add&post=${encodeURIComponent(CHAPTER_KEY)}&type=${type}`)
+    fetch('/api/reactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post: CHAPTER_KEY, type }),
+    })
       .then(r => r.json())
-      .then(counts => { currentCounts = counts; renderReactions(counts, type); })
+      .then(d => { currentCounts = d.counts || {}; renderReactions(currentCounts, type); })
       .catch(() => {});
   }
 
   let currentCounts = null;
   function fetchReactions() {
-    fetch(`${PDS_CONFIG.REACT_URL}?action=get&post=${encodeURIComponent(CHAPTER_KEY)}`)
+    fetch(`/api/reactions?post=${encodeURIComponent(CHAPTER_KEY)}`)
       .then(r => r.json())
-      .then(counts => { currentCounts = counts; renderReactions(counts, getVoted()); })
+      .then(d => { currentCounts = d.counts || {}; renderReactions(currentCounts, getVoted()); })
       .catch(() => renderReactions(null, getVoted()));
   }
 
@@ -185,7 +189,7 @@ window.initReactionsComments = function initReactionsComments() {
 
   function fetchComments() {
     if (listEl) listEl.innerHTML = '<div class="empty-msg">Đang tải bình luận...</div>';
-    fetch(`${PDS_CONFIG.COMMENT_URL}?action=getComments&postUrl=${encodeURIComponent(CHAPTER_KEY)}`)
+    fetch(`/api/comments?postUrl=${encodeURIComponent(CHAPTER_KEY)}`)
       .then(r => r.json())
       .then(d => renderComments(d.ok ? (d.data || []) : []))
       .catch(() => renderComments([]));
@@ -195,14 +199,14 @@ window.initReactionsComments = function initReactionsComments() {
     const btn = formEl ? formEl.querySelector('.btn-send') : submitBtn;
     if (btn) { btn.disabled = true; btn.textContent = formEl ? 'Đang gửi...' : 'Đang gửi...'; }
 
-    let params = 'action=addComment'
-      + '&postUrl=' + encodeURIComponent(CHAPTER_KEY)
-      + '&postTitle=' + encodeURIComponent(CHAPTER_TITLE)
-      + '&name=' + encodeURIComponent(name)
-      + '&body=' + encodeURIComponent(body);
-    if (parentId) params += '&parentId=' + encodeURIComponent(parentId);
+    const payload = { postUrl: CHAPTER_KEY, postTitle: CHAPTER_TITLE, name, body };
+    if (parentId) payload.parentId = parentId;
 
-    fetch(`${PDS_CONFIG.COMMENT_URL}?${params}`)
+    fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
       .then(r => r.json())
       .then(d => {
         if (d.ok) {
@@ -215,7 +219,7 @@ window.initReactionsComments = function initReactionsComments() {
           fetchComments();
         } else {
           if (btn) { btn.disabled = false; btn.textContent = formEl ? 'Gửi' : 'Gửi bình luận'; }
-          alert('Lỗi gửi bình luận: ' + (d.error || 'unknown'));
+          alert('Lỗi gửi bình luận: ' + (d.reason || 'unknown'));
         }
       })
       .catch(() => {
