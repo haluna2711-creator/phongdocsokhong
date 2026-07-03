@@ -99,7 +99,7 @@ module.exports = async function handler(req, res) {
         postTitle: postTitle || '',
         parentId,
         body,
-        name: 'Quản trị viên',
+        name: 'Quản thư',
       }));
       const data = await r.json();
       if (!data.ok) return res.status(502).json({ ok: false, reason: data.error || 'gas_error' });
