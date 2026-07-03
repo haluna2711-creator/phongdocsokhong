@@ -26,6 +26,17 @@ module.exports = async function handler(req, res) {
 
     const { data, error } = await query;
     if (error) return res.status(500).json({ ok: false, reason: error.message });
+
+    // Đính kèm số chương cho mỗi truyện (dùng cho danh sách admin + trang truyện)
+    if (data && data.length) {
+      let cq = db.from('chapters').select('novel_id, status').in('novel_id', data.map((n) => n.id));
+      if (!admin) cq = cq.eq('status', 'published');
+      const { data: chRows } = await cq;
+      const counts = {};
+      (chRows || []).forEach((r) => { counts[r.novel_id] = (counts[r.novel_id] || 0) + 1; });
+      data.forEach((n) => { n.chapter_count = counts[n.id] || 0; });
+    }
+
     return res.status(200).json({ ok: true, novels: data });
   }
 
