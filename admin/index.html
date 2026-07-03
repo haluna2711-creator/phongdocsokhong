@@ -10,9 +10,7 @@
 <div id="app"></div>
 <script src="/admin/admin-common.js"></script>
 <script>
-(async function () {
-  await guardAdmin();
-
+async function load() {
   mountShell('dashboard', `
     <div class="page-head">
       <div><h1>Tổng quan</h1><p>Chào mừng trở lại.</p></div>
@@ -32,20 +30,33 @@
     </div>
   `);
 
+  // TRƯỚC ĐÂY: gọi /api/chapters?novel_id=... LẶP LẠI cho từng truyện, TUẦN TỰ
+  // (vòng lặp for...await). Với N truyện là N lần round-trip nối tiếp tới
+  // serverless function — đây là nguyên nhân chính khiến trang Tổng quan
+  // (trang vào đầu tiên sau khi đăng nhập) load rất chậm khi thư viện có
+  // nhiều truyện. Sửa lại: gọi 1 lần /api/chapters (không lọc novel_id) để
+  // lấy TOÀN BỘ chương, rồi đếm bằng JS ở client — chỉ còn 1 round-trip
+  // duy nhất thay vì N+1.
   try {
-    const { novels } = await api('/api/novels');
+    const [{ novels }, { chapters }] = await Promise.all([
+      api('/api/novels'),
+      api('/api/chapters'),
+    ]);
     document.getElementById('statNovels').textContent = novels.length;
 
     let published = 0, scheduled = 0;
-    for (const n of novels) {
-      const { chapters } = await api(`/api/chapters?novel_id=${n.id}`);
-      published += chapters.filter(c => c.status === 'published').length;
-      scheduled += chapters.filter(c => c.status === 'scheduled').length;
+    for (const c of chapters) {
+      if (c.status === 'published') published++;
+      else if (c.status === 'scheduled') scheduled++;
     }
     document.getElementById('statPublished').textContent = published;
     document.getElementById('statScheduled').textContent = scheduled;
-  } catch (e) { toast('Không tải được thống kê', 'err'); }
-})();
+  } catch (e) {
+    toast('Không tải được thống kê: ' + e.message, 'err');
+  }
+}
+
+bootAdmin('dashboard', load);
 </script>
 </body>
 </html>
