@@ -2,6 +2,7 @@
 // PHÒNG ĐỌC SỐ 0 — Reaction + Bình luận theo CHƯƠNG
 // Dùng lại 2 Apps Script cũ (COMMENT_URL, REACT_URL trong config.js)
 // nhưng khóa theo chapter_id thay vì postUrl của Blogger.
+// Hỗ trợ: thông báo sau khi react, trả lời bình luận (reply lồng nhau).
 // ════════════════════════════════════
 
 window.initReactionsComments = function initReactionsComments() {
@@ -12,6 +13,7 @@ window.initReactionsComments = function initReactionsComments() {
   const CHAPTER_TITLE = document.getElementById('ch-title')?.textContent || '';
 
   const reactRow   = document.getElementById('reactionsRow');
+  const reactMsgEl = document.getElementById('reactionMsg');
   const commentForm= document.getElementById('commentForm');
   const nameEl     = document.getElementById('commentName');
   const bodyEl     = document.getElementById('commentContent');
@@ -22,10 +24,25 @@ window.initReactionsComments = function initReactionsComments() {
   // REACTIONS
   // ─────────────────────────────
   const RE = { love: '❤️', fire: '🔥', cry: '😭', shock: '😱', star: '⭐' };
+  const RE_MSG = {
+    love:  '❤️ Lữ khách đã thả tim cho truyện này!',
+    fire:  '🔥 Cháy khét lẹt rồi!',
+    cry:   '😭 Lữ khách đã khóc cùng nhân vật!',
+    shock: '😱 Cốt truyện gây sốc thật sự!',
+    star:  '⭐ Lữ khách đánh giá 5 sao!',
+  };
   const RK = 'pds_react_voted_' + CHAPTER_KEY.replace(/\W+/g, '_');
 
   function getVoted() { try { return localStorage.getItem(RK) || null; } catch { return null; } }
   function saveVoted(t) { try { localStorage.setItem(RK, t); } catch {} }
+
+  function showReactionMsg(type) {
+    if (!reactMsgEl) return;
+    const msg = RE_MSG[type];
+    if (!msg) { reactMsgEl.classList.remove('show'); return; }
+    reactMsgEl.textContent = msg;
+    reactMsgEl.classList.add('show');
+  }
 
   function renderReactions(counts, voted) {
     if (!reactRow) return;
@@ -38,12 +55,15 @@ window.initReactionsComments = function initReactionsComments() {
     reactRow.querySelectorAll('.reaction-btn').forEach(btn => {
       btn.addEventListener('click', () => doReact(btn.dataset.type));
     });
+
+    if (voted) showReactionMsg(voted);
   }
 
   function doReact(type) {
     if (getVoted()) return;
     saveVoted(type);
     renderReactions(currentCounts, type);
+    showReactionMsg(type);
     fetch(`${PDS_CONFIG.REACT_URL}?action=add&post=${encodeURIComponent(CHAPTER_KEY)}&type=${type}`)
       .then(r => r.json())
       .then(counts => { currentCounts = counts; renderReactions(counts, type); })
@@ -59,7 +79,7 @@ window.initReactionsComments = function initReactionsComments() {
   }
 
   // ─────────────────────────────
-  // COMMENTS
+  // COMMENTS (hỗ trợ trả lời — reply lồng 1 cấp)
   // ─────────────────────────────
   function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function timeAgo(ts) {
@@ -73,8 +93,66 @@ window.initReactionsComments = function initReactionsComments() {
     return String(n || '?').trim().split(/\s+/).map(w => w[0] || '').join('').toUpperCase().slice(0, 2) || '?';
   }
 
+  // id an toàn để gắn vào DOM (data-attrs)
+  function safeId(id) { return String(id ?? '').replace(/[^a-zA-Z0-9_-]/g, ''); }
+
+  let allComments = [];
+  let openReplyId = null; // id bình luận đang mở form trả lời
+
+  function buildTree(items) {
+    const byId = new Map();
+    items.forEach(c => byId.set(String(c.id), { ...c, replies: [] }));
+    const roots = [];
+    byId.forEach(c => {
+      const pid = c.parentId ? String(c.parentId) : null;
+      if (pid && byId.has(pid)) byId.get(pid).replies.push(c);
+      else roots.push(c);
+    });
+    roots.sort((a, b) => b.ts - a.ts);
+    roots.forEach(r => r.replies.sort((a, b) => a.ts - b.ts));
+    return roots;
+  }
+
+  function renderComment(c, isReply) {
+    const sid = safeId(c.id);
+    const adminBadge = c.isAdmin ? '<span class="comment-admin-badge">Quản trị viên</span>' : '';
+    const replyBtn = isReply ? '' : `<div class="comment-actions"><button class="comment-reply-btn" data-reply="${sid}">Trả lời</button></div>`;
+    const replyForm = (!isReply && openReplyId === String(c.id)) ? `
+      <form class="reply-form" data-reply-form="${sid}">
+        <input type="text" class="reply-name" placeholder="Tên hiển thị..." maxlength="40" required/>
+        <textarea class="reply-body" placeholder="Viết trả lời..." maxlength="1000" required></textarea>
+        <div class="reply-form-actions">
+          <button type="button" class="btn-cancel" data-cancel-reply="${sid}">Huỷ</button>
+          <button type="submit" class="btn-send">Gửi</button>
+        </div>
+      </form>` : '';
+
+    const repliesHtml = (c.replies && c.replies.length)
+      ? `<div class="comment-replies">${c.replies.map(r => renderComment(r, true)).join('')}</div>`
+      : '';
+
+    return `
+      <div class="comment-item" data-comment-id="${sid}">
+        <div class="comment-item-head">
+          <span class="comment-author">${esc(initials(c.name))} · ${esc(c.name)}</span>
+          ${adminBadge}
+          <span class="comment-time">${timeAgo(c.ts)}</span>
+        </div>
+        <div class="comment-body">${esc(c.body)}</div>
+        ${replyBtn}
+        ${replyForm}
+        ${repliesHtml}
+      </div>`;
+  }
+
+  function countAll(items) {
+    return items.reduce((n, c) => n + 1 + countAll(c.replies || []), 0);
+  }
+
   function renderComments(items) {
     if (!listEl) return;
+    allComments = items;
+    const tree = buildTree(items);
     const countEl = document.querySelector('.novel-comments h2');
     if (countEl) countEl.textContent = `✦ Bình luận chương này (${items.length})`;
 
@@ -82,16 +160,27 @@ window.initReactionsComments = function initReactionsComments() {
       listEl.innerHTML = '<div class="empty-msg">Chưa có bình luận nào cho chương này. Hãy là người đầu tiên!</div>';
       return;
     }
-    listEl.innerHTML = items
-      .sort((a, b) => b.ts - a.ts)
-      .map(c => `
-        <div class="comment-item">
-          <div class="comment-item-head">
-            <span class="comment-author">${esc(initials(c.name))} · ${esc(c.name)}</span>
-            <span class="comment-time">${timeAgo(c.ts)}</span>
-          </div>
-          <div class="comment-body">${esc(c.body)}</div>
-        </div>`).join('');
+    listEl.innerHTML = tree.map(c => renderComment(c, false)).join('');
+
+    listEl.querySelectorAll('[data-reply]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        openReplyId = openReplyId === btn.dataset.reply ? null : btn.dataset.reply;
+        renderComments(allComments);
+      });
+    });
+    listEl.querySelectorAll('[data-cancel-reply]').forEach(btn => {
+      btn.addEventListener('click', () => { openReplyId = null; renderComments(allComments); });
+    });
+    listEl.querySelectorAll('[data-reply-form]').forEach(form => {
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const parentId = form.dataset.replyForm;
+        const name = form.querySelector('.reply-name').value.trim();
+        const body = form.querySelector('.reply-body').value.trim();
+        if (!name || !body) return;
+        submitComment(name, body, parentId, form);
+      });
+    });
   }
 
   function fetchComments() {
@@ -102,40 +191,49 @@ window.initReactionsComments = function initReactionsComments() {
       .catch(() => renderComments([]));
   }
 
-  function submitComment() {
+  function submitComment(name, body, parentId, formEl) {
+    const btn = formEl ? formEl.querySelector('.btn-send') : submitBtn;
+    if (btn) { btn.disabled = true; btn.textContent = formEl ? 'Đang gửi...' : 'Đang gửi...'; }
+
+    let params = 'action=addComment'
+      + '&postUrl=' + encodeURIComponent(CHAPTER_KEY)
+      + '&postTitle=' + encodeURIComponent(CHAPTER_TITLE)
+      + '&name=' + encodeURIComponent(name)
+      + '&body=' + encodeURIComponent(body);
+    if (parentId) params += '&parentId=' + encodeURIComponent(parentId);
+
+    fetch(`${PDS_CONFIG.COMMENT_URL}?${params}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) {
+          if (formEl) {
+            openReplyId = null;
+          } else {
+            if (nameEl) nameEl.value = '';
+            if (bodyEl) bodyEl.value = '';
+          }
+          fetchComments();
+        } else {
+          if (btn) { btn.disabled = false; btn.textContent = formEl ? 'Gửi' : 'Gửi bình luận'; }
+          alert('Lỗi gửi bình luận: ' + (d.error || 'unknown'));
+        }
+      })
+      .catch(() => {
+        if (btn) { btn.disabled = false; btn.textContent = formEl ? 'Gửi' : 'Gửi bình luận'; }
+        alert('Không kết nối được. Vui lòng thử lại.');
+      });
+  }
+
+  commentForm?.addEventListener('submit', e => {
+    e.preventDefault();
     const name = (nameEl?.value || '').trim();
     const body = (bodyEl?.value || '').trim();
     if (!name || !body) {
       if (!name) nameEl?.focus(); else bodyEl?.focus();
       return;
     }
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Đang gửi...'; }
-
-    const params = 'action=addComment'
-      + '&postUrl=' + encodeURIComponent(CHAPTER_KEY)
-      + '&postTitle=' + encodeURIComponent(CHAPTER_TITLE)
-      + '&name=' + encodeURIComponent(name)
-      + '&body=' + encodeURIComponent(body);
-
-    fetch(`${PDS_CONFIG.COMMENT_URL}?${params}`)
-      .then(r => r.json())
-      .then(d => {
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Gửi bình luận'; }
-        if (d.ok) {
-          if (nameEl) nameEl.value = '';
-          if (bodyEl) bodyEl.value = '';
-          fetchComments();
-        } else {
-          alert('Lỗi gửi bình luận: ' + (d.error || 'unknown'));
-        }
-      })
-      .catch(() => {
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Gửi bình luận'; }
-        alert('Không kết nối được. Vui lòng thử lại.');
-      });
-  }
-
-  commentForm?.addEventListener('submit', e => { e.preventDefault(); submitComment(); });
+    submitComment(name, body, null, null);
+  });
 
   fetchReactions();
   fetchComments();
