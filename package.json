@@ -1,0 +1,11 @@
+{
+  "name": "phong-doc-so-0",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Phòng Đọc Số 0 — site truyện + admin panel (Supabase backend)",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "jsonwebtoken": "^9.0.2",
+    "luxon": "^3.5.0"
+  }
+}
