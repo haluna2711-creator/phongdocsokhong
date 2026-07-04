@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" dir="ltr">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Đang tải truyện… — Phòng Đọc Số 0</title>
 
-<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="preload" as="style"
   href="https://fonts.googleapis.com/css2?family=Vollkorn:ital,wght@0,600;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap"
@@ -14,159 +14,45 @@
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Vollkorn:ital,wght@0,600;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap"/>
 </noscript>
+<link rel="stylesheet" href="/css/style.css"/>
 
+<!-- ════════════════════════════════════
+     CSS riêng cho trang truyện. Không định nghĩa lại :root / reset /
+     noise-grain / header / footer vì style.css đã có sẵn — chỉ bổ sung
+     token + component riêng cho khối nội dung truyện.
+     ════════════════════════════════════ -->
 <style>
-/* ─── RESET + TOKENS ─────────────────────────────────────── */
-:root {
-  --black:       #0A0A0A;
-  --gold:        #F8DB8F;
-  --gold-hover:  #FFD166;
-  --gold-dim:    rgba(248,219,143,.10);
-  --gold-border: rgba(248,219,143,.25);
-  --white:       #F5F0E8;
-  --text-muted:  rgba(245,240,232,.55);
-  --t-fast: .18s;
-  --t-mid:  .28s;
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-
-body{
-  background:var(--black);
-  color:var(--white);
-  font-family:'EB Garamond',Georgia,serif;
-  font-size:16px;
-  line-height:1.7;
-  padding:24px;
-  isolation:isolate;
+:root{
+  --pd-gold:        #F8DB8F;
+  --pd-gold-hover:  #FFD166;
+  --pd-gold-dim:    rgba(248,219,143,.10);
+  --pd-gold-border: rgba(248,219,143,.25);
+  --pd-white:       #F5F0E8;
+  --pd-text-muted:  rgba(245,240,232,.55);
+  --pd-t-fast: .18s;
+  --pd-t-mid:  .28s;
 }
 
-/* ─── HEADER ────────────────────────────────────────────── */
-.hdr-wrap{
-  position:relative;
-  max-width:900px;
-  margin:0 auto;
-  height:110px;
-  display:flex;align-items:center;justify-content:center;
-  overflow:hidden;
+#starsCanvas{
+  position:fixed;inset:0;width:100%;height:100%;
+  pointer-events:none;z-index:0;opacity:0.7;
+  transform:translateZ(0);
 }
 
-#hdrCanvas{
-  position:absolute;inset:0;
-  width:100%;height:100%;
-  pointer-events:none;
-}
-
-.hdr-bg-static{
-  display:none;
-  position:absolute;inset:0;
-  background:radial-gradient(ellipse 70% 80% at 50% 50%,rgba(248,219,143,.07) 0%,transparent 70%);
-  pointer-events:none;
-}
-
-.hdr-center{
-  position:relative;z-index:2;
-  display:flex;flex-direction:column;align-items:center;gap:6px;
-}
-.hdr-ornament{display:flex;align-items:center;gap:14px}
-.hdr-line{
-  width:80px;height:1px;
-  background:linear-gradient(to right,transparent,rgba(248,219,143,.7));
-}
-.hdr-line.right{background:linear-gradient(to left,transparent,rgba(248,219,143,.7))}
-.hdr-gems{display:flex;align-items:center;gap:5px}
-
-.hdr-gem{
-  color:var(--gold);font-size:13px;display:inline-block;
-  will-change:transform,opacity;
-  animation:gemPulse 2.4s ease-in-out infinite;
-  text-shadow:0 0 10px rgba(248,219,143,.9),0 0 22px rgba(248,219,143,.5);
-}
-.hdr-gem:nth-child(1){animation-delay:0s;font-size:10px;opacity:.7}
-.hdr-gem:nth-child(2){animation-delay:.4s;font-size:15px}
-.hdr-gem:nth-child(3){animation-delay:.8s;font-size:10px;opacity:.7}
-
-@keyframes gemPulse{
-  0%,100%{transform:scale(1);opacity:.6}
-  50%{transform:scale(1.35);opacity:1}
-}
-
-.hdr-subtitle{
-  font-family:'Vollkorn',serif;font-size:10px;font-weight:600;
-  letter-spacing:.22em;text-transform:uppercase;
-  color:rgba(248,219,143,.55);
-  animation:fadeShimmer 3.5s ease-in-out infinite;
-}
-@keyframes fadeShimmer{
-  0%,100%{opacity:.45}
-  50%{opacity:.85}
-}
-
-.hdr-title-row{display:flex;align-items:center;gap:10px}
-.hdr-logo-line{
-  width:1px;height:28px;
-  background:linear-gradient(to bottom,transparent,rgba(248,219,143,.5),transparent);
-}
-.hdr-icon{
-  font-size:22px;color:var(--gold);
-  will-change:transform,text-shadow;
-  animation:iconGlow 2.8s ease-in-out infinite;
-  text-shadow:0 0 12px rgba(248,219,143,.8);
-}
-@keyframes iconGlow{
-  0%,100%{text-shadow:0 0 8px rgba(248,219,143,.5);transform:rotate(-5deg) scale(.95)}
-  50%{text-shadow:0 0 20px rgba(248,219,143,1),0 0 36px rgba(248,219,143,.4);transform:rotate(5deg) scale(1.05)}
-}
-
-.hdr-badge{
-  font-family:'Vollkorn',serif;font-size:11px;font-weight:600;
-  letter-spacing:.1em;text-transform:uppercase;
-  color:rgba(248,219,143,.7);padding:4px 14px;
-  border:1px solid rgba(248,219,143,.2);border-radius:20px;
-  background:rgba(248,219,143,.05);
-  animation:badgePulse 3s ease-in-out infinite;
-}
-@keyframes badgePulse{
-  0%,100%{border-color:rgba(248,219,143,.15);box-shadow:none}
-  50%{border-color:rgba(248,219,143,.5);box-shadow:0 0 14px rgba(248,219,143,.2)}
-}
-
-.hdr-bottom-glow{position:absolute;bottom:0;left:0;width:100%;pointer-events:none;z-index:1}
-.hdr-bottom-line{
-  position:absolute;bottom:0;left:0;width:100%;height:1px;
-  background:linear-gradient(to right,transparent 0%,rgba(248,219,143,.4) 15%,rgba(248,219,143,.95) 50%,rgba(248,219,143,.4) 85%,transparent 100%);
-}
-.hdr-glow-wide{
-  position:absolute;bottom:0;left:50%;transform:translateX(-50%);
-  width:80%;height:60px;
-  background:radial-gradient(ellipse 60% 100% at 50% 100%,rgba(248,219,143,.18) 0%,rgba(248,219,143,.06) 50%,transparent 100%);
-}
-.hdr-glow-tight{
-  position:absolute;bottom:0;left:50%;transform:translateX(-50%);
-  width:40%;height:45px;
-  background:radial-gradient(ellipse 50% 100% at 50% 100%,rgba(248,219,143,.32) 0%,rgba(248,219,143,.10) 45%,transparent 100%);
-}
-.hdr-glow-core{
-  position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);
-  width:12%;height:28px;
-  background:radial-gradient(ellipse 60% 100% at 50% 100%,rgba(255,230,120,.55) 0%,rgba(248,219,143,.18) 55%,transparent 100%);
-}
+.post-page-wrap{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:40px 24px 100px}
 
 /* ─── NOVEL INTRO ─────────────────────────────────────── */
 .novel-intro{
   display:flex;gap:30px;
-  max-width:900px;margin:32px auto;padding:28px;
+  margin:0 auto 20px;padding:28px;
   background:rgba(17,17,17,.95);
   border-radius:12px;
-  border:1px solid rgba(248,219,143,.18);
-  box-shadow:none;
+  border:1px solid var(--pd-gold-border);
   contain:layout paint;
-  transition:border-color var(--t-mid),box-shadow var(--t-mid);
+  transition:border-color var(--pd-t-mid);
   position:relative;
 }
-.novel-intro:hover{
-  border-color:rgba(248,219,143,.4);
-  box-shadow:none;
-}
+.novel-intro:hover{ border-color:rgba(248,219,143,.4); }
 
 .novel-cover img{
   width:200px;
@@ -175,7 +61,7 @@ body{
   border:1px solid rgba(248,219,143,.25);
   box-shadow:0 12px 40px rgba(0,0,0,.7),0 0 20px rgba(248,219,143,.12);
   display:block;
-  transition:box-shadow var(--t-mid),transform var(--t-mid);
+  transition:box-shadow var(--pd-t-mid),transform var(--pd-t-mid);
   background:#151515;
   aspect-ratio:3/4;
 }
@@ -186,7 +72,7 @@ body{
 
 .novel-info{flex:1;min-width:0}
 .novel-info h1{
-  font-family:'Vollkorn',serif;color:var(--gold);
+  font-family:'Vollkorn',serif;color:var(--pd-gold);
   margin:0 0 16px;font-size:26px;font-weight:700;
   line-height:1.35;letter-spacing:.02em;
 }
@@ -196,31 +82,17 @@ body{
 .meta-icon{
   width:28px;height:28px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
-  color:var(--gold);
-  background:transparent;
+  color:var(--pd-gold);
   border:1px solid rgba(248,219,143,.2);border-radius:6px;
-  transition:background var(--t-fast),box-shadow var(--t-fast),border-color var(--t-fast);
+  transition:border-color var(--pd-t-fast);
 }
 .meta-icon svg{width:14px;height:14px}
-.meta-item:hover .meta-icon{
-  background:transparent;
-  border-color:rgba(248,219,143,.5);
-  box-shadow:none;
-}
+.meta-item:hover .meta-icon{ border-color:rgba(248,219,143,.5); }
 
 .meta-icon--pulse{animation:metaPulse 2.2s ease-in-out infinite}
 @keyframes metaPulse{
   0%,100%{box-shadow:0 0 0 0 rgba(248,219,143,.3);border-color:rgba(248,219,143,.2)}
   50%{box-shadow:0 0 0 5px rgba(248,219,143,0);border-color:rgba(248,219,143,.7)}
-}
-
-.meta-item--status{
-  animation:rowPulse 2.2s ease-in-out infinite;
-  border-radius:6px;padding:2px 8px 2px 2px;margin-left:-2px;
-}
-@keyframes rowPulse{
-  0%, 100% { background: transparent; box-shadow: none; }
-  50%       { background: transparent; box-shadow: none; }
 }
 
 .meta-label{
@@ -230,19 +102,18 @@ body{
   white-space:nowrap;width:76px;
 }
 .meta-value{font-family:'EB Garamond',serif;font-size:15px;color:rgba(245,240,232,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.meta-value--active{color:var(--gold);font-style:italic}
+.meta-value--active{color:var(--pd-gold);font-style:italic}
 
 .novel-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
 .novel-tags span{
   font-family:'Vollkorn',serif;font-size:11px;font-weight:600;
   letter-spacing:.07em;text-transform:uppercase;
-  color:var(--gold);
-  background:transparent;
+  color:var(--pd-gold);
   border:1px solid rgba(248,219,143,.22);
   padding:5px 12px;border-radius:4px;
-  transition:background var(--t-fast),border-color var(--t-fast);
+  transition:border-color var(--pd-t-fast);
 }
-.novel-tags span:hover{background:transparent;border-color:rgba(248,219,143,.5)}
+.novel-tags span:hover{border-color:rgba(248,219,143,.5)}
 
 .novel-desc{
   font-family:'EB Garamond',serif;
@@ -272,9 +143,11 @@ body{
   letter-spacing:.1em;text-transform:uppercase;
   color:rgba(248,219,143,.6);cursor:pointer;
   text-align:right;
-  transition:color var(--t-fast);
+  transition:color var(--pd-t-fast);
 }
-.desc-btn:hover{color:var(--gold)}
+.desc-btn:hover{color:var(--pd-gold)}
+
+.novel-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
 
 .read-btn{
   display:inline-flex;align-items:center;gap:8px;
@@ -283,7 +156,7 @@ body{
   color:#0A0A0A;text-decoration:none;border-radius:6px;
   font-family:'Vollkorn',serif;font-size:12px;font-weight:700;
   letter-spacing:.12em;text-transform:uppercase;
-  transition:transform var(--t-fast),box-shadow var(--t-fast),background var(--t-fast);
+  transition:transform var(--pd-t-fast),box-shadow var(--pd-t-fast),background var(--pd-t-fast);
   will-change:transform;
   border:none;cursor:pointer;
 }
@@ -295,45 +168,53 @@ body{
 }
 .read-btn[aria-disabled="true"]{opacity:.4;pointer-events:none}
 
+.save-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 24px;
+  background:transparent;
+  color:var(--pd-gold);
+  border:1px solid rgba(248,219,143,.4);border-radius:6px;
+  font-family:'Vollkorn',serif;font-size:12px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;
+  cursor:pointer;
+  transition:background var(--pd-t-fast),border-color var(--pd-t-fast),transform var(--pd-t-fast);
+}
+.save-btn:hover{ background:rgba(248,219,143,.08); border-color:var(--pd-gold); transform:translateY(-2px); }
+.save-btn svg{width:14px;height:14px;flex-shrink:0}
+.save-btn.saved{ background:rgba(248,219,143,.12); border-color:var(--pd-gold); color:var(--pd-gold-hover); }
+.save-btn.saved svg{ fill:currentColor; }
+
 /* ─── NOTE ────────────────────────────────────────────── */
 .novel-note{
-  max-width:900px;margin:20px auto;padding:22px 26px;
+  margin:0 auto 20px;padding:22px 26px;
   display:flex;gap:18px;align-items:flex-start;
-  background:transparent;
   border:1px solid rgba(248,219,143,.2);
-  border-left:4px solid var(--gold);border-radius:8px;
+  border-left:4px solid var(--pd-gold);border-radius:8px;
   contain:layout paint;
-  transition:border-color var(--t-mid),box-shadow var(--t-mid),background var(--t-mid);
-  box-shadow:none;
+  transition:border-color var(--pd-t-mid);
 }
-.novel-note:hover{
-  background:transparent;
-  border-color:rgba(248,219,143,.45);
-  border-left-color:#FFD166;
-  box-shadow:none;
-}
-.note-icon{font-size:26px;color:var(--gold);line-height:1.4;flex-shrink:0;filter:drop-shadow(0 0 6px rgba(248,219,143,.5))}
+.novel-note:hover{ border-color:rgba(248,219,143,.45); border-left-color:#FFD166; }
+.note-icon{font-size:26px;color:var(--pd-gold);line-height:1.4;flex-shrink:0;filter:drop-shadow(0 0 6px rgba(248,219,143,.5))}
 .note-content{font-family:'EB Garamond',serif;color:rgba(245,240,232,.88);line-height:1.9;font-size:17px}
 .note-content strong{
-  font-family:'Vollkorn',serif;color:var(--gold);
+  font-family:'Vollkorn',serif;color:var(--pd-gold);
   font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   display:block;margin-bottom:8px;text-shadow:0 0 12px rgba(248,219,143,.4);
 }
 
-/* ─── STAR DIVIDER ────────────────────────────────────── */
+/* ─── STAR DIVIDER (giữ lại, nằm giữa trang, không phải decor đầu trang) ── */
 .star-divider{
-  max-width:900px;margin:8px auto;
+  margin:8px auto 28px;
   position:relative;height:48px;
   display:flex;align-items:center;justify-content:center;gap:16px;
   overflow:hidden;
 }
-.star-divider-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .star-divider-line{flex:1;height:1px;position:relative;z-index:2}
 .star-divider-line--left{background:linear-gradient(to right,transparent,rgba(248,219,143,.6))}
 .star-divider-line--right{background:linear-gradient(to left,transparent,rgba(248,219,143,.6))}
 .star-divider-center{display:flex;align-items:center;gap:6px;position:relative;z-index:2;flex-shrink:0}
 .star-divider-gem{
-  color:var(--gold);font-size:14px;
+  color:var(--pd-gold);font-size:14px;
   animation:gemTwinkle 2s ease-in-out infinite;
   display:inline-block;
   text-shadow:0 0 8px rgba(248,219,143,.8),0 0 16px rgba(248,219,143,.4);
@@ -347,24 +228,20 @@ body{
 
 /* ─── TOC ─────────────────────────────────────────────── */
 .novel-toc{
-  max-width:900px;margin:32px auto;padding:20px 16px 16px;
+  margin:0 auto;padding:20px 16px 16px;
   background:rgba(17,17,17,.92);border-radius:12px;
   border:1px solid rgba(248,219,143,.15);
-  box-shadow:none;
   contain:layout paint;
-  transition:border-color var(--t-mid),box-shadow var(--t-mid);
+  transition:border-color var(--pd-t-mid);
 }
-.novel-toc:hover{
-  border-color:rgba(248,219,143,.32);
-  box-shadow:none;
-}
+.novel-toc:hover{ border-color:rgba(248,219,143,.32); }
 
 .toc-header{
   display:flex;align-items:center;justify-content:space-between;
   gap:10px;margin-bottom:14px;flex-wrap:wrap;
 }
 .toc-header h2{
-  margin:0;font-family:'Vollkorn',serif;color:var(--gold);
+  margin:0;font-family:'Vollkorn',serif;color:var(--pd-gold);
   font-size:20px;font-weight:700;letter-spacing:.04em;white-space:nowrap;
 }
 .toc-controls{display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -381,13 +258,10 @@ body{
   color:rgba(245,240,232,.85);
   font-family:'EB Garamond',serif;font-size:14px;
   padding:6px 12px 6px 28px;outline:none;width:140px;
-  transition:border-color var(--t-fast),background var(--t-fast),width .3s ease,box-shadow var(--t-fast);
+  transition:border-color var(--pd-t-fast),width .3s ease;
 }
 #tocSearch::placeholder{color:rgba(248,219,143,.35);font-style:italic}
-#tocSearch:focus{
-  border-color:rgba(248,219,143,.55);background:transparent;
-  box-shadow:none;width:170px;
-}
+#tocSearch:focus{ border-color:rgba(248,219,143,.55); width:170px; }
 #tocSearch::-webkit-search-cancel-button{
   -webkit-appearance:none;appearance:none;width:12px;height:12px;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1 1l10 10M11 1L1 11' stroke='%23F8DB8F' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
@@ -402,18 +276,14 @@ body{
   background:transparent;
   border:1px solid rgba(248,219,143,.25);border-radius:20px;
   cursor:pointer;flex-shrink:0;white-space:nowrap;
-  transition:background var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast);
+  transition:border-color var(--pd-t-fast);
 }
-#sortBtn:hover{
-  background:transparent;
-  border-color:rgba(248,219,143,.55);
-  box-shadow:none;
-}
-#sortBtn:hover .sort-label{color:var(--gold)}
+#sortBtn:hover{ border-color:rgba(248,219,143,.55); }
+#sortBtn:hover .sort-label{color:var(--pd-gold)}
 .sort-label{
   font-family:'Vollkorn',serif;font-size:11px;font-weight:600;
   letter-spacing:.08em;text-transform:uppercase;
-  color:rgba(248,219,143,.5);transition:color var(--t-fast);
+  color:rgba(248,219,143,.5);transition:color var(--pd-t-fast);
   user-select:none;white-space:nowrap;
 }
 .sort-arrow-svg{flex-shrink:0;transition:transform .3s ease}
@@ -435,7 +305,7 @@ body{
 .chapter-list::-webkit-scrollbar{width:3px}
 .chapter-list::-webkit-scrollbar-track{background:rgba(248,219,143,.04);border-radius:2px}
 .chapter-list::-webkit-scrollbar-thumb{background:rgba(248,219,143,.28);border-radius:2px}
-.chapter-list::-webkit-scrollbar-thumb:hover{background:var(--gold)}
+.chapter-list::-webkit-scrollbar-thumb:hover{background:var(--pd-gold)}
 
 .chapter-item{
   display:flex;align-items:center;gap:10px;
@@ -444,35 +314,31 @@ body{
   color:rgba(245,240,232,.65);
   text-decoration:none;
   border-bottom:1px solid rgba(248,219,143,.06);
-  transition:color var(--t-fast),background var(--t-fast),padding-left var(--t-fast);
+  transition:color var(--pd-t-fast),background var(--pd-t-fast),padding-left var(--pd-t-fast);
   position:relative;border-radius:4px;
   min-height:44px;
 }
 .chapter-item::before{
   content:'';position:absolute;
   left:0;top:0;bottom:0;width:2px;
-  background:var(--gold);
+  background:var(--pd-gold);
   transform:scaleY(0);
-  transition:transform var(--t-fast);
+  transition:transform var(--pd-t-fast);
   border-radius:0 2px 2px 0;
 }
 .chapter-item:hover,.chapter-item:active{
-  color:var(--gold);background:rgba(248,219,143,.05);padding-left:18px;
+  color:var(--pd-gold);background:rgba(248,219,143,.05);padding-left:18px;
 }
 .chapter-item:hover::before,.chapter-item:active::before{transform:scaleY(1)}
 .chapter-item:visited{color:rgba(248,219,143,.42)}
-.chapter-item:visited:hover,.chapter-item:visited:active{color:var(--gold)}
+.chapter-item:visited:hover,.chapter-item:visited:active{color:var(--pd-gold)}
 
 .ch-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4}
-.ch-vol-tag{
-  flex-shrink:0;font-family:'Vollkorn',serif;font-size:10px;font-weight:600;
-  letter-spacing:.05em;text-transform:uppercase;color:rgba(248,219,143,.45);
-}
-.ch-highlight{background:rgba(248,219,143,.25);color:var(--gold);border-radius:2px;padding:0 1px}
+.ch-highlight{background:rgba(248,219,143,.25);color:var(--pd-gold);border-radius:2px;padding:0 1px}
 
 .vol-header{
   font-family:'Vollkorn',serif;font-size:12px;font-weight:700;
-  letter-spacing:.08em;text-transform:uppercase;color:var(--gold);
+  letter-spacing:.08em;text-transform:uppercase;color:var(--pd-gold);
   padding:14px 10px 6px;opacity:.85;
 }
 .vol-header:first-child{padding-top:4px}
@@ -480,80 +346,6 @@ body{
 .empty-msg{
   text-align:center;font-family:'EB Garamond',serif;font-style:italic;
   color:rgba(245,240,232,.38);padding:40px 20px;font-size:15px;
-}
-
-/* ═══════════════════════════════════════════════
-   MOBILE
-   ═══════════════════════════════════════════════ */
-@media (max-width:600px){
-  body{padding:12px}
-
-  #hdrCanvas,#dividerCanvas{display:none !important}
-  .hdr-bg-static{display:block}
-
-  .hdr-gem,
-  .hdr-ornament,
-  .hdr-icon,
-  .hdr-logo-line,
-  .hdr-subtitle,
-  .hdr-glow-wide,
-  .hdr-glow-tight,
-  .hdr-glow-core,
-  .star-divider-canvas {
-    display:none !important;
-    animation:none !important;
-  }
-
-  .hdr-wrap{display:none !important}
-
-  .novel-cover img:hover{transform:none}
-  .novel-intro:hover,.novel-note:hover,.novel-toc:hover{
-    border-color:rgba(248,219,143,.18);
-    box-shadow:none;
-  }
-  .chapter-item:hover{padding-left:10px}
-
-  .novel-intro{
-    flex-direction:column;text-align:center;
-    padding:16px;margin:16px auto;gap:16px;
-  }
-  .novel-cover img{width:200px;margin:0 auto}
-  .novel-tags{justify-content:center}
-  .novel-info h1{font-size:19px}
-  .read-btn{margin:0 auto}
-  .desc-btn{text-align:center}
-
-  .novel-note{padding:16px;gap:12px;margin:12px auto}
-  .note-content{font-size:15px}
-
-  .novel-toc{margin:16px auto;padding:14px 12px 12px;border-radius:10px}
-  .toc-header{flex-direction:column;align-items:flex-start;gap:10px;margin-bottom:10px}
-  .toc-header h2{font-size:17px}
-  .toc-controls{width:100%;gap:8px}
-  .toc-search-wrap{flex:1}
-
-  #tocSearch{
-    width:100%;font-size:15px;
-    padding:8px 12px 8px 30px;border-radius:8px;
-  }
-  #tocSearch:focus{width:100%}
-  #sortBtn{padding:7px 12px;border-radius:8px;gap:5px}
-  .sort-label{font-size:10px;letter-spacing:.05em}
-
-  .chapter-list{max-height:420px;padding-right:2px}
-  .chapter-item{padding:10px 8px;font-size:14px;min-height:46px;gap:8px}
-
-  .hdr-glow-wide,.hdr-glow-tight,.hdr-glow-core{
-    animation:none;opacity:.6;
-  }
-}
-
-@media (prefers-reduced-motion:reduce){
-  *,*::before,*::after{
-    animation-duration:.01ms !important;
-    animation-iteration-count:1 !important;
-    transition-duration:.01ms !important;
-  }
 }
 
 .tc-badge {
@@ -571,258 +363,477 @@ body{
   z-index: 10;
   user-select: none;
 }
-@media (max-width: 600px) {
-  .tc-badge { font-size: 9px; padding: 4px 10px 4px 8px; }
-}
 
 .page-loading, .page-error{
   max-width:900px;margin:60px auto;text-align:center;
   font-family:'EB Garamond',serif;color:rgba(245,240,232,.5);font-style:italic;
 }
+
+/* ─── READER GATE (modal nhập email khi bấm Lưu lần đầu) ─────────── */
+.reader-gate-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(6,6,8,.82);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;padding:20px;
+}
+.reader-gate-overlay.open{display:flex}
+.reader-gate-box{
+  width:100%;max-width:380px;
+  background:#111;border:1px solid var(--pd-gold-border);border-radius:12px;
+  padding:28px 26px;text-align:center;
+  box-shadow:0 24px 64px rgba(0,0,0,.6);
+}
+.reader-gate-box .rg-icon{font-size:24px;color:var(--pd-gold);margin-bottom:10px}
+.reader-gate-box h3{font-family:'Vollkorn',serif;color:var(--pd-gold);font-size:17px;margin-bottom:8px;letter-spacing:.02em}
+.reader-gate-box p{font-size:13px;color:rgba(245,240,232,.6);line-height:1.7;margin-bottom:18px}
+.reader-gate-box input{
+  width:100%;padding:10px 14px;margin-bottom:14px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(248,219,143,.3);border-radius:6px;
+  color:var(--pd-white);font-family:'EB Garamond',serif;font-size:15px;outline:none;
+}
+.reader-gate-box input:focus{border-color:var(--pd-gold)}
+.rg-actions{display:flex;gap:10px}
+.rg-confirm{
+  flex:1;padding:10px;border:none;border-radius:6px;cursor:pointer;
+  background:linear-gradient(135deg,#F8DB8F 0%,#FFD166 100%);color:#0A0A0A;
+  font-family:'Vollkorn',serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+}
+.rg-cancel{
+  padding:10px 16px;border:1px solid rgba(248,219,143,.3);border-radius:6px;background:transparent;
+  color:rgba(245,240,232,.6);cursor:pointer;font-family:'Vollkorn',serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+}
+.rg-error{color:#ff8080;font-size:12px;margin-top:-8px;margin-bottom:12px;display:none}
+
+/* ═══════════════════════════════════════════════ MOBILE ═══════════════════════════════════════════════ */
+@media (max-width:600px){
+  .post-page-wrap{padding:20px 16px 80px}
+  .novel-cover img:hover{transform:none}
+  .novel-intro:hover,.novel-note:hover,.novel-toc:hover{ border-color:rgba(248,219,143,.18); }
+  .chapter-item:hover{padding-left:10px}
+
+  .novel-intro{
+    flex-direction:column;text-align:center;
+    padding:16px;margin:0 auto 16px;gap:16px;
+  }
+  .novel-cover img{width:200px;margin:0 auto}
+  .novel-tags{justify-content:center}
+  .novel-info h1{font-size:19px}
+  .novel-actions{justify-content:center}
+  .read-btn,.save-btn{margin:0 auto}
+  .desc-btn{text-align:center}
+
+  .novel-note{padding:16px;gap:12px;margin:0 auto 12px}
+  .note-content{font-size:15px}
+
+  .novel-toc{margin:0 auto;padding:14px 12px 12px;border-radius:10px}
+  .toc-header{flex-direction:column;align-items:flex-start;gap:10px;margin-bottom:10px}
+  .toc-header h2{font-size:17px}
+  .toc-controls{width:100%;gap:8px}
+  .toc-search-wrap{flex:1}
+
+  #tocSearch{ width:100%;font-size:15px; padding:8px 12px 8px 30px;border-radius:8px; }
+  #tocSearch:focus{width:100%}
+  #sortBtn{padding:7px 12px;border-radius:8px;gap:5px}
+  .sort-label{font-size:10px;letter-spacing:.05em}
+
+  .chapter-list{max-height:420px;padding-right:2px}
+  .chapter-item{padding:10px 8px;font-size:14px;min-height:46px;gap:8px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .star-divider-gem, .meta-icon--pulse{ animation:none !important; }
+}
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<div class="hdr-wrap">
-  <canvas id="hdrCanvas"></canvas>
-  <div class="hdr-bg-static"></div>
-  <div class="hdr-center">
-    <div class="hdr-ornament">
-      <div class="hdr-line"></div>
-      <div class="hdr-gems">
-        <span class="hdr-gem">✦</span>
-        <span class="hdr-gem">✦</span>
-        <span class="hdr-gem">✦</span>
-      </div>
-      <div class="hdr-line right"></div>
-    </div>
-    <div class="hdr-title-row">
-      <div class="hdr-logo-line"></div>
-      <span class="hdr-icon">✧</span>
-      <span class="hdr-badge">Phòng Đọc Số 0</span>
-      <span class="hdr-icon" style="animation-delay:1.4s">✧</span>
-      <div class="hdr-logo-line"></div>
-    </div>
-    <div class="hdr-subtitle">Biên tập · phi thương mại</div>
-    <div class="hdr-ornament">
-      <div class="hdr-line"></div>
-      <div class="hdr-gems">
-        <span class="hdr-gem" style="animation-delay:1.2s">✦</span>
-        <span class="hdr-gem" style="animation-delay:1.6s">✦</span>
-        <span class="hdr-gem" style="animation-delay:2s">✦</span>
-      </div>
-      <div class="hdr-line right"></div>
-    </div>
-  </div>
-  <div class="hdr-bottom-glow">
-    <div class="hdr-glow-wide"></div>
-    <div class="hdr-glow-tight"></div>
-    <div class="hdr-glow-core"></div>
-    <div class="hdr-bottom-line"></div>
-  </div>
-</div>
+<canvas id="starsCanvas"></canvas>
 
-<div id="loadingMsg" class="page-loading">Đang tải truyện…</div>
-<div id="content" style="display:none">
-
-<!-- NOVEL INTRO -->
-<div class="novel-intro">
-  <div class="novel-cover">
-    <img id="novelCover" alt="" src="" width="200" height="267" fetchpriority="high" decoding="async"/>
-  </div>
-  <div class="tc-badge" id="tcBadge">
-    <span style="font-size:11px">✦</span>
-    <span id="tcBadgeText">đang ra</span>
-  </div>
-  <div class="novel-info">
-    <h1 id="novelTitle"></h1>
-    <div class="novel-meta">
-      <span class="meta-item">
-        <span class="meta-icon">
-          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M4 17l1.5-4.5L14 4l2.5 2.5-8.5 8.5L4 17z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 6l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-        </span>
-        <span class="meta-label">Tác giả</span>
-        <span class="meta-value" id="novelAuthor">—</span>
-      </span>
-      <span class="meta-item">
-        <span class="meta-icon">
-          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 2a6 6 0 016 6c0 3.5-6 10-6 10S4 11.5 4 8a6 6 0 016-6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-            <circle cx="10" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
-        </span>
-        <span class="meta-label">Biên tập</span>
-        <span class="meta-value" id="novelEditor">—</span>
-      </span>
-      <span class="meta-item meta-item--status">
-        <span class="meta-icon meta-icon--pulse">
-          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="10" cy="10" r="3" fill="currentColor"/>
-            <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/>
-          </svg>
-        </span>
-        <span class="meta-label">Trạng thái</span>
-        <span class="meta-value meta-value--active" id="novelStatus">—</span>
-      </span>
-      <span class="meta-item">
-        <span class="meta-icon">
-          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="3" y="4" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M7 4V3M9 4V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            <path d="M6 8h5M6 11h5M6 14h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-            <rect x="11" y="9" width="6" height="8" rx="1" stroke="currentColor" stroke-width="1.3"/>
-          </svg>
-        </span>
-        <span class="meta-label">Số chương</span>
-        <span class="meta-value" id="novelChapterCount">0</span>
-      </span>
-    </div>
-    <div class="novel-tags" id="novelTags"></div>
-    <p class="novel-desc" id="novelDesc"></p>
-    <button class="desc-btn" id="toggleDesc">Xem thêm</button>
-    <a class="read-btn" href="#" id="readBtn">✦ Đọc ngay</a>
-  </div>
-</div>
-
-<div class="novel-note">
-  <div class="note-icon">⚠</div>
-  <div class="note-content">
-    <strong>Lưu ý</strong>
-    Bản edit phi thương mại và chưa có sự đồng ý của tác giả.<br/>
-    Đề nghị không mang đi nơi khác!<br/>
-    Không đảm bảo sẽ chính xác nội dung 100%.
-  </div>
-</div>
-
-<div class="star-divider">
-  <div class="star-divider-line star-divider-line--left"></div>
-  <div class="star-divider-center">
-    <span class="star-divider-gem">✦</span>
-    <span class="star-divider-gem star-divider-gem--sm">✦</span>
-    <span class="star-divider-gem">✦</span>
-  </div>
-  <div class="star-divider-line star-divider-line--right"></div>
-  <canvas class="star-divider-canvas" id="dividerCanvas"></canvas>
-</div>
-
-<div class="novel-toc">
-  <div class="toc-header">
-    <h2>✦ Mục lục truyện</h2>
-    <div class="toc-controls">
-      <div class="toc-search-wrap">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-          <circle cx="6.5" cy="6.5" r="4"/>
-          <line x1="10" y1="10" x2="14" y2="14"/>
-        </svg>
-        <input type="search" id="tocSearch" placeholder="Tìm chương…" autocomplete="off" spellcheck="false"/>
-      </div>
-      <div class="sort-btn-wrap">
-        <button class="asc" id="sortBtn">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#F8DB8F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="2" y1="4" x2="12" y2="4"/>
-            <line x1="2" y1="7" x2="9" y2="7"/>
-            <line x1="2" y1="10" x2="6" y2="10"/>
-          </svg>
-          <span class="sort-label" id="sortLabel">Chương đầu</span>
-          <svg class="sort-arrow-svg" width="10" height="10" viewBox="0 0 10 10" fill="#F8DB8F">
-            <polygon points="5,2 9,8 1,8"/>
-          </svg>
+<!-- ════════ HEADER (giống hệt trang chủ) ════════ -->
+<header id="header">
+  <div class="header-inner">
+    <div class="header-logo-row">
+      <button class="hamburger" id="hamburger" aria-label="Mở menu">
+        <span></span><span></span><span></span>
+      </button>
+      <a class="logo" href="/">
+        <img class="logo-img" src="https://phongdocsokhong.wordpress.com/wp-content/uploads/2026/05/logo-ngang.png" alt="Phòng Đọc Số 0" width="240" height="72" fetchpriority="high" decoding="sync"/>
+      </a>
+      <div class="header-right">
+        <div class="search-bar">
+          <input type="text" placeholder="Tìm truyện..."/>
+          <button aria-label="Tìm kiếm">
+            <svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </button>
+        </div>
+        <button class="mobile-search-icon" id="mobileSearchIcon" aria-label="Tìm kiếm">
+          <svg fill="none" height="17" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="17"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </button>
       </div>
     </div>
+    <div class="header-nav-row">
+      <nav>
+        <a href="/">Trang Chủ</a>
+        <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+        <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+        <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+      </nav>
+    </div>
   </div>
-  <div class="toc-count" id="tocCount"></div>
-  <div class="chapter-list" id="chapter-list">
-    <div class="empty-msg">Đang tải chương...</div>
+</header>
+
+<!-- Overlay + Mobile Drawer -->
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-head">
+    <span class="mobile-menu-title">Menu</span>
+    <span class="swipe-hint-label">vuốt để đóng</span>
+  </div>
+  <div class="mobile-search-wrap">
+    <div class="search-bar">
+      <input id="mobileDrawerSearchInput" type="text" placeholder="Tìm truyện" readonly/>
+      <button id="mobileDrawerSearchBtn"><svg fill="none" height="15" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="15"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+    </div>
+  </div>
+  <nav>
+    <a href="/">Trang Chủ</a>
+    <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+    <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+    <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+  </nav>
+  <div class="mobile-menu-footer">
+    <div class="mobile-menu-footer-line"></div>
+    <span class="mobile-menu-footer-gem">✦</span>
+    <div class="mobile-menu-footer-line" style="background:linear-gradient(to left,var(--gold-border),transparent)"></div>
   </div>
 </div>
 
-</div><!-- /#content -->
+<!-- Search Overlay -->
+<div class="search-overlay" id="searchOverlay">
+  <button class="search-overlay-close" id="searchOverlayClose">×</button>
+  <div class="search-overlay-title">✦ Tìm Kiếm Truyện</div>
+  <div class="search-bar">
+    <input id="searchOverlayInput" type="text" placeholder="Nhập tên truyện, thể loại..." autocomplete="off" spellcheck="false"/>
+    <button id="searchOverlayBtn"><svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="18"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+  </div>
+  <div class="search-hint" id="searchHint">Gõ để tìm truyện trong thư viện...</div>
+  <div class="search-results" id="searchResults"></div>
+</div>
 
-<div id="errorMsg" class="page-error" style="display:none">Không tìm thấy truyện này.</div>
+<!-- ════════ NỘI DUNG TRANG TRUYỆN ════════ -->
+<main class="post-page-wrap">
+
+  <div id="loadingMsg" class="page-loading">Đang tải truyện…</div>
+
+  <div id="content" style="display:none">
+
+    <!-- NOVEL INTRO -->
+    <div class="novel-intro">
+      <div class="novel-cover">
+        <img id="novelCover" alt="" src="" width="200" height="267" fetchpriority="high" decoding="async"/>
+      </div>
+      <div class="tc-badge" id="tcBadge">
+        <span style="font-size:11px">✦</span>
+        <span id="tcBadgeText">đang ra</span>
+      </div>
+      <div class="novel-info">
+        <h1 id="novelTitle"></h1>
+        <div class="novel-meta">
+          <span class="meta-item">
+            <span class="meta-icon">
+              <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 17l1.5-4.5L14 4l2.5 2.5-8.5 8.5L4 17z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 6l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="meta-label">Tác giả</span>
+            <span class="meta-value" id="novelAuthor">—</span>
+          </span>
+          <span class="meta-item">
+            <span class="meta-icon">
+              <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 2a6 6 0 016 6c0 3.5-6 10-6 10S4 11.5 4 8a6 6 0 016-6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                <circle cx="10" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+            </span>
+            <span class="meta-label">Biên tập</span>
+            <span class="meta-value" id="novelEditor">—</span>
+          </span>
+          <span class="meta-item meta-item--status">
+            <span class="meta-icon meta-icon--pulse">
+              <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="10" cy="10" r="3" fill="currentColor"/>
+                <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/>
+              </svg>
+            </span>
+            <span class="meta-label">Trạng thái</span>
+            <span class="meta-value meta-value--active" id="novelStatus">—</span>
+          </span>
+          <span class="meta-item">
+            <span class="meta-icon">
+              <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="4" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M7 4V3M9 4V3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M6 8h5M6 11h5M6 14h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                <rect x="11" y="9" width="6" height="8" rx="1" stroke="currentColor" stroke-width="1.3"/>
+              </svg>
+            </span>
+            <span class="meta-label">Số chương</span>
+            <span class="meta-value" id="novelChapterCount">0</span>
+          </span>
+        </div>
+        <div class="novel-tags" id="novelTags"></div>
+        <p class="novel-desc" id="novelDesc"></p>
+        <button class="desc-btn" id="toggleDesc">Xem thêm</button>
+        <div class="novel-actions">
+          <a class="read-btn" href="#" id="readBtn">✦ Đọc ngay</a>
+          <button class="save-btn" id="saveBtn" type="button">
+            <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.6" fill="none"><path d="M10 17s-6.5-4.1-6.5-9A3.9 3.9 0 0110 5.8 3.9 3.9 0 0116.5 8c0 4.9-6.5 9-6.5 9z"/></svg>
+            <span id="saveBtnLabel">Lưu / Mượn Sách</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="novel-note">
+      <div class="note-icon">⚠</div>
+      <div class="note-content">
+        <strong>Lưu ý</strong>
+        Bản edit phi thương mại và chưa có sự đồng ý của tác giả.<br/>
+        Đề nghị không mang đi nơi khác!<br/>
+        Không đảm bảo sẽ chính xác nội dung 100%.
+      </div>
+    </div>
+
+    <div class="star-divider">
+      <div class="star-divider-line star-divider-line--left"></div>
+      <div class="star-divider-center">
+        <span class="star-divider-gem">✦</span>
+        <span class="star-divider-gem star-divider-gem--sm">✦</span>
+        <span class="star-divider-gem">✦</span>
+      </div>
+      <div class="star-divider-line star-divider-line--right"></div>
+    </div>
+
+    <div class="novel-toc">
+      <div class="toc-header">
+        <h2>✦ Mục lục truyện</h2>
+        <div class="toc-controls">
+          <div class="toc-search-wrap">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <circle cx="6.5" cy="6.5" r="4"/>
+              <line x1="10" y1="10" x2="14" y2="14"/>
+            </svg>
+            <input type="search" id="tocSearch" placeholder="Tìm chương…" autocomplete="off" spellcheck="false"/>
+          </div>
+          <div class="sort-btn-wrap">
+            <button class="asc" id="sortBtn">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#F8DB8F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="2" y1="4" x2="12" y2="4"/>
+                <line x1="2" y1="7" x2="9" y2="7"/>
+                <line x1="2" y1="10" x2="6" y2="10"/>
+              </svg>
+              <span class="sort-label" id="sortLabel">Chương đầu</span>
+              <svg class="sort-arrow-svg" width="10" height="10" viewBox="0 0 10 10" fill="#F8DB8F">
+                <polygon points="5,2 9,8 1,8"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="toc-count" id="tocCount"></div>
+      <div class="chapter-list" id="chapter-list">
+        <div class="empty-msg">Đang tải chương...</div>
+      </div>
+    </div>
+
+  </div><!-- /#content -->
+
+  <div id="errorMsg" class="page-error" style="display:none">Không tìm thấy truyện này.</div>
+
+</main>
+
+<!-- ════════ FOOTER (giống hệt trang chủ) ════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">✦ Phòng Đọc Số 0 ✦</div>
+    <div class="footer-links">
+      <a href="/p/lien-he">Liên Hệ</a>
+      <a href="/p/quy-dinh">Quy Định</a>
+    </div>
+    <div class="footer-copy">© <span id="footerYearPds">2026</span> Phòng Đọc Số 0 · Thiếu Gay Hồn Bay Một Nửa
+      <span style="display:block;">Cảm ơn chủ sốp Noisy Team đã hướng dẫn tui cook web này</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Back to top -->
+<button id="btt" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Về đầu trang">
+  <div class="btt-ring"></div>
+  <svg class="btt-icon" fill="none" height="16" viewBox="0 0 16 16" width="16"><line stroke="#F8DB8F" stroke-linecap="round" stroke-width="1.8" x1="8" x2="8" y1="12" y2="4"/><polyline fill="none" points="4.5,7 8,3.5 11.5,7" stroke="#F8DB8F" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/></svg>
+  <span class="btt-label">TOP</span>
+</button>
+
+<!-- Reader Gate Modal — bấm Lưu lần đầu chưa có thẻ sẽ hiện ô này -->
+<div class="reader-gate-overlay" id="readerGate">
+  <div class="reader-gate-box">
+    <div class="rg-icon">✦</div>
+    <h3>Lập / Nhập Thẻ Bạn Đọc</h3>
+    <p>Nhập email để mượn sách — sách mượn sẽ được lưu vào Thẻ Bạn Đọc của bạn trên máy này.</p>
+    <input type="email" id="rgEmailInput" placeholder="ban@email.com" autocomplete="email"/>
+    <div class="rg-error" id="rgError">Vui lòng nhập email hợp lệ.</div>
+    <div class="rg-actions">
+      <button class="rg-cancel" id="rgCancel">Huỷ</button>
+      <button class="rg-confirm" id="rgConfirm">Xác Nhận</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="/js/config.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/app.js"></script>
 
 <script>
-const IS_MOBILE = window.matchMedia('(max-width:600px)').matches
-               || ('ontouchstart' in window && window.innerWidth <= 600);
+// ════════════════════════════════════
+// Stars Canvas — nền chung, đồng bộ với các trang khác của site
+// ════════════════════════════════════
+(function(){
+  const c   = document.getElementById('starsCanvas');
+  const ctx = c.getContext('2d', { alpha: true, desynchronized: true });
 
-let pageVisible = !document.hidden;
-document.addEventListener('visibilitychange', () => { pageVisible = !document.hidden; });
+  let stars = [], raf, W, H;
+  const isMobile = window.innerWidth < 721;
+  const DENSITY = isMobile ? 0.12 : 0.3;
+
+  function resize(){ W = c.width = window.innerWidth; H = c.height = window.innerHeight; buildStars(); }
+  function buildStars(){
+    const n = Math.floor(W * DENSITY);
+    stars = new Array(n);
+    for(let i = 0; i < n; i++){
+      stars[i] = { x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.4+0.3, a: Math.random()*0.8+0.2, phase: Math.random()*6.28318, speed: Math.random()*0.012+0.005, gold: Math.random() > 0.45 };
+    }
+  }
+  let lastFrameTime = 0;
+  const TARGET_FPS = isMobile ? 30 : 60;
+  const FRAME_MS = 1000 / TARGET_FPS;
+  function draw(now){
+    raf = requestAnimationFrame(draw);
+    if(now - lastFrameTime < FRAME_MS) return;
+    lastFrameTime = now;
+    ctx.clearRect(0,0,W,H);
+    for(let i=0;i<stars.length;i++){ const s=stars[i]; if(!s.gold) continue; s.phase+=s.speed; ctx.globalAlpha = s.a*(0.5+0.5*Math.sin(s.phase)); ctx.fillStyle='rgba(248,219,143,1)'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.28318); ctx.fill(); }
+    for(let i=0;i<stars.length;i++){ const s=stars[i]; if(s.gold) continue; s.phase+=s.speed; ctx.globalAlpha = s.a*(0.5+0.5*Math.sin(s.phase)); ctx.fillStyle='rgba(200,168,75,1)'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.28318); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){ cancelAnimationFrame(raf); } else { lastFrameTime = 0; raf = requestAnimationFrame(draw); }
+  });
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 200); });
+  resize();
+  raf = requestAnimationFrame(draw);
+})();
 
 /* ═══════════════════════════════════════
-   HEADER CANVAS — chỉ chạy trên desktop
+   THẺ BẠN ĐỌC — thư viện lưu cục bộ (localStorage), dùng chung với trang
+   /p/the-ban-doc. Khoá lưu trữ và cấu trúc dữ liệu PHẢI khớp giữa 2 trang.
    ═══════════════════════════════════════ */
-if (!IS_MOBILE) {
-  const canvas = document.getElementById('hdrCanvas');
-  if (canvas) {
-    const ctx = canvas.getContext('2d');
-    let W, H, particles = [];
+const PDS_ACTIVE_KEY = 'pds_active_email';
 
-    function resize() { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; }
-    function mkParticle() {
-      return {
-        x: Math.random() * W, y: Math.random() * H,
-        r: Math.random() * 1.4 + 0.2, alpha: Math.random() * 0.6 + 0.1,
-        vx: (Math.random() - 0.5) * 0.06, vy: -Math.random() * 0.04 - 0.01,
-        phase: Math.random() * Math.PI * 2, speed: Math.random() * 0.005 + 0.003,
-        drift: (Math.random() - 0.5) * 0.001,
-      };
-    }
-    function init() { resize(); particles = Array.from({length: 80}, mkParticle); }
-    function draw() {
-      if (!pageVisible) { requestAnimationFrame(draw); return; }
-      ctx.clearRect(0, 0, W, H);
-      particles.forEach(p => {
-        p.phase += p.speed; p.vx += p.drift; p.x += p.vx; p.y += p.vy;
-        if (p.y < -4) { p.y = H + 4; p.x = Math.random() * W; }
-        if (p.x < -4) p.x = W + 4;
-        if (p.x > W + 4) p.x = -4;
-        const alpha = p.alpha * (0.3 + 0.7 * Math.abs(Math.sin(p.phase)));
-        ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = '#F8DB8F';
-        if (p.r > 1) { ctx.shadowBlur = 6; ctx.shadowColor = 'rgba(248,219,143,.8)'; }
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      });
-      requestAnimationFrame(draw);
-    }
-    let resizeTimer;
-    window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(init, 200); });
-    init(); draw();
+function pdsNormEmail(e){ return (e || '').trim().toLowerCase(); }
+function pdsCardKey(email){ return 'pds_card_' + pdsNormEmail(email); }
+function pdsHashCardNo(email){
+  let h = 0; const s = pdsNormEmail(email);
+  for(let i = 0; i < s.length; i++){ h = (h * 31 + s.charCodeAt(i)) >>> 0; }
+  return 'PDS-' + String(h % 1000000).padStart(6, '0');
+}
+function pdsGetActiveEmail(){ return localStorage.getItem(PDS_ACTIVE_KEY) || ''; }
+function pdsSetActiveEmail(email){ localStorage.setItem(PDS_ACTIVE_KEY, pdsNormEmail(email)); }
+function pdsGetCard(email){
+  const key = pdsCardKey(email);
+  try{
+    const raw = localStorage.getItem(key);
+    if(raw) return JSON.parse(raw);
+  }catch(e){ /* dữ liệu hỏng, tạo lại thẻ mới */ }
+  const card = { email: pdsNormEmail(email), cardNo: pdsHashCardNo(email), createdAt: Date.now(), novels: {} };
+  localStorage.setItem(key, JSON.stringify(card));
+  return card;
+}
+function pdsSaveCard(card){ localStorage.setItem(pdsCardKey(card.email), JSON.stringify(card)); }
+function pdsIsSaved(email, slug){
+  if(!email || !slug) return false;
+  return !!pdsGetCard(email).novels[slug];
+}
+function pdsToggleNovel(email, novelData){
+  const card = pdsGetCard(email);
+  if(card.novels[novelData.slug]){
+    delete card.novels[novelData.slug];
+    pdsSaveCard(card);
+    return false;
   }
+  card.novels[novelData.slug] = Object.assign({}, novelData, { savedAt: Date.now() });
+  pdsSaveCard(card);
+  return true;
+}
+function isValidEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
+// ── Reader gate modal ──
+const readerGate   = document.getElementById('readerGate');
+const rgEmailInput = document.getElementById('rgEmailInput');
+const rgError      = document.getElementById('rgError');
+let rgOnConfirm = null;
+
+function openReaderGate(onConfirm){
+  rgOnConfirm = onConfirm;
+  rgError.style.display = 'none';
+  rgEmailInput.value = '';
+  readerGate.classList.add('open');
+  setTimeout(() => rgEmailInput.focus(), 50);
+}
+function closeReaderGate(){ readerGate.classList.remove('open'); rgOnConfirm = null; }
+
+document.getElementById('rgCancel').addEventListener('click', closeReaderGate);
+readerGate.addEventListener('click', (e) => { if(e.target === readerGate) closeReaderGate(); });
+document.getElementById('rgConfirm').addEventListener('click', confirmReaderGate);
+rgEmailInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') confirmReaderGate(); });
+
+function confirmReaderGate(){
+  const email = rgEmailInput.value.trim();
+  if(!isValidEmail(email)){ rgError.style.display = 'block'; return; }
+  pdsSetActiveEmail(email);
+  closeReaderGate();
+  if(typeof rgOnConfirm === 'function') rgOnConfirm(email);
 }
 
-if (!IS_MOBILE) {
-  const dCanvas = document.getElementById('dividerCanvas');
-  if (dCanvas) {
-    const ctx2 = dCanvas.getContext('2d');
-    let W2, H2, stars = [];
-    function resize2() { W2 = dCanvas.width = dCanvas.offsetWidth; H2 = dCanvas.height = dCanvas.offsetHeight; }
-    function randomStar() {
-      return { x: Math.random()*W2, y: Math.random()*H2, r: Math.random()*1.2+0.3, a: Math.random(),
-        vx: (Math.random()-0.5)*0.3, vy: (Math.random()-0.5)*0.15, phase: Math.random()*Math.PI*2, speed: Math.random()*0.02+0.01 };
-    }
-    function init2() { resize2(); stars = Array.from({length: 35}, randomStar); }
-    function draw2() {
-      if (!pageVisible) { requestAnimationFrame(draw2); return; }
-      ctx2.clearRect(0, 0, W2, H2);
-      stars.forEach(s => {
-        s.phase += s.speed; s.x += s.vx; s.y += s.vy;
-        if (s.x < 0) s.x = W2; if (s.x > W2) s.x = 0;
-        if (s.y < 0) s.y = H2; if (s.y > H2) s.y = 0;
-        const alpha = (0.3 + 0.7 * Math.abs(Math.sin(s.phase))) * s.a;
-        ctx2.save(); ctx2.globalAlpha = alpha; ctx2.fillStyle = '#F8DB8F';
-        ctx2.shadowBlur = s.r > 1 ? 5 : 0; ctx2.shadowColor = 'rgba(248,219,143,.9)';
-        ctx2.beginPath(); ctx2.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx2.fill(); ctx2.restore();
-      });
-      requestAnimationFrame(draw2);
-    }
-    let rt;
-    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(init2, 200); });
-    init2(); draw2();
-  }
+// ── Save / Mượn sách button ──
+function updateSaveBtnUI(saved){
+  const btn = document.getElementById('saveBtn');
+  const label = document.getElementById('saveBtnLabel');
+  btn.classList.toggle('saved', saved);
+  label.textContent = saved ? 'Đã Mượn ✓' : 'Lưu / Mượn Sách';
 }
+
+function doToggleSave(email){
+  if(!NOVEL) return;
+  const firstCh = chapters[0];
+  const saved = pdsToggleNovel(email, {
+    slug: NOVEL.slug,
+    title: NOVEL.title,
+    cover: NOVEL.cover_url || '',
+    genre: (NOVEL.tags && NOVEL.tags[0]) || '',
+    status: NOVEL.status || '',
+    chapterCount: NOVEL.chapter_count ?? chapters.length,
+    readUrl: firstCh ? chapterUrl(firstCh) : `/post/${NOVEL.slug}`,
+  });
+  updateSaveBtnUI(saved);
+}
+
+document.getElementById('saveBtn').addEventListener('click', function(){
+  const email = pdsGetActiveEmail();
+  if(!email){ openReaderGate((enteredEmail) => doToggleSave(enteredEmail)); return; }
+  doToggleSave(email);
+});
 
 /* ═══════════════════════════════════════
    DATA — tải truyện + danh sách chương từ API của site
@@ -833,7 +844,6 @@ const STATUS_LABEL = { ongoing: 'Đang tiến hành', completed: 'Hoàn thành',
 const STATUS_BADGE  = { ongoing: 'đang ra', completed: 'full', dropped: 'tạm dừng' };
 
 function novelSlugFromPath() {
-  // URL dạng /post/:slug (vercel rewrite sang post.html, path hiển thị giữ nguyên)
   const parts = location.pathname.split('/').filter(Boolean);
   const i = parts.indexOf('post');
   return decodeURIComponent((i !== -1 ? parts[i + 1] : parts[parts.length - 1]) || '');
@@ -888,6 +898,8 @@ function populateNovel() {
     desc.classList.toggle('expanded');
     this.textContent = desc.classList.contains('expanded') ? 'Thu gọn' : 'Xem thêm';
   });
+
+  updateSaveBtnUI(pdsIsSaved(pdsGetActiveEmail(), NOVEL.slug));
 }
 
 function highlight(text, query) {
@@ -962,14 +974,12 @@ async function loadNovel() {
   if (!slug) { showError(); return; }
 
   try {
-    // credentials:'omit': trang công khai, không được vô tình gửi kèm cookie
-    // phiên admin (xem giải thích chi tiết trong doc.html -> fetchJSON).
-    const res = await fetch(`/api/novels?slug=${encodeURIComponent(slug)}`, { credentials: 'omit' });
+    const res = await fetch(`/api/novels?slug=${encodeURIComponent(slug)}`);
     const data = await res.json();
     if (!data.ok || !data.novels || !data.novels.length) { showError(); return; }
     NOVEL = data.novels[0];
 
-    const chRes = await fetch(`/api/chapters?novel_id=${encodeURIComponent(NOVEL.id)}`, { credentials: 'omit' });
+    const chRes = await fetch(`/api/chapters?novel_id=${encodeURIComponent(NOVEL.id)}`);
     const chData = await chRes.json();
     chapters = (chData.ok && chData.chapters) ? chData.chapters : [];
     chapters.sort((a, b) => a.chapter_number - b.chapter_number);
