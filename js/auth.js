@@ -31,7 +31,7 @@
   // server trả về "already_registered" rồi tự chuyển sang bước đăng nhập.
   // Việc khoá chỉ áp dụng cho email HOÀN TOÀN MỚI, do server (api/auth-register.js)
   // quyết định — ở đây chỉ hiện thông báo mang tính hướng dẫn.
-  fetch('/api/registration-gate')
+  fetch('/api/auth-register?action=gate-status')
     .then(r => r.json())
     .then(d => {
       if (d && d.ok && d.open === false) {
