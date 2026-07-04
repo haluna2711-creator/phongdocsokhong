@@ -1,7 +1,8 @@
 // ════════════════════════════════════
 // PHÒNG ĐỌC SỐ 0 — Reaction + Bình luận theo CHƯƠNG
-// Dùng lại 2 Apps Script cũ (COMMENT_URL, REACT_URL trong config.js)
-// nhưng khóa theo chapter_id thay vì postUrl của Blogger.
+// Reaction: GET/POST /api/views (gộp chung với API lượt xem truyện, xem
+// ghi chú trong api/views.js — do giới hạn 12 Serverless Functions/Vercel Hobby).
+// Comment: GET/POST /api/comments, khóa theo chapter_id thay vì postUrl của Blogger.
 // Hỗ trợ: thông báo sau khi react, trả lời bình luận (reply lồng nhau).
 // ════════════════════════════════════
 
@@ -64,7 +65,7 @@ window.initReactionsComments = function initReactionsComments() {
     saveVoted(type);
     renderReactions(currentCounts, type);
     showReactionMsg(type);
-    fetch('/api/reactions', {
+    fetch('/api/views', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ post: CHAPTER_KEY, type }),
@@ -76,7 +77,7 @@ window.initReactionsComments = function initReactionsComments() {
 
   let currentCounts = null;
   function fetchReactions() {
-    fetch(`/api/reactions?post=${encodeURIComponent(CHAPTER_KEY)}`)
+    fetch(`/api/views?post=${encodeURIComponent(CHAPTER_KEY)}`)
       .then(r => r.json())
       .then(d => { currentCounts = d.counts || {}; renderReactions(currentCounts, getVoted()); })
       .catch(() => renderReactions(null, getVoted()));
