@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="vi" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Liên Hệ – Phòng Đọc Số 0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="/css/style.css"/>
+
+<!-- ════════════════════════════════════
+     CSS riêng cho trang Liên Hệ (không có trong style.css dùng chung).
+     Không định nghĩa lại :root / reset / noise-grain / .shimmer-line /
+     header / footer / search-overlay / mobile-menu / #btt vì style.css
+     đã có sẵn — tránh trùng lặp và lệch giá trị về sau.
+     Toàn bộ class riêng của trang này đặt tiền tố "contact-" để không
+     đụng với class của các trang khác (theo đúng quy ước "orbit-" của
+     trang Quỹ Đạo Luân Chuyển).
+     ════════════════════════════════════ -->
+<style>
+#starsCanvas{
+  position:fixed;inset:0;width:100%;height:100%;
+  pointer-events:none;z-index:0;opacity:0.7;
+  transform:translateZ(0);
+}
+
+.contact-page-wrap{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:64px 28px 100px}
+
+.contact-eyebrow{font-family:'Vollkorn',serif;font-size:11px;font-weight:600;letter-spacing:0.32em;text-transform:uppercase;color:var(--gold-light);opacity:0.7;margin-bottom:12px}
+.contact-heading{font-family:'Vollkorn',serif;font-size:clamp(36px,6vw,58px);font-weight:900;line-height:1.12;color:var(--white);margin-bottom:20px}
+.contact-heading em{color:var(--gold-light);font-style:italic}
+.contact-lead{font-size:17px;color:var(--text-muted);line-height:1.85;max-width:540px;margin-bottom:0}
+.contact-lead + .contact-lead{margin-top:-10px}
+.contact-lead:last-of-type{margin-bottom:56px}
+
+.contact-layout{display:grid;grid-template-columns:1fr 320px;gap:48px;align-items:start}
+
+/* Form card */
+.contact-form-card{
+  background:var(--black-2);border:1px solid var(--gold-border);
+  border-radius:12px;padding:40px 36px;position:relative;overflow:hidden;
+  transition:border-color var(--transition),box-shadow var(--transition);
+  isolation:isolate;
+}
+.contact-form-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(to right,transparent,var(--gold-light),transparent);
+  opacity:0;transition:opacity var(--transition);
+}
+.contact-form-card:focus-within{border-color:rgba(248,219,143,0.46);box-shadow:0 0 48px rgba(248,219,143,0.07)}
+.contact-form-card:focus-within::before{opacity:1}
+.contact-form-card-orb{
+  position:absolute;top:-40px;right:-40px;width:130px;height:130px;border-radius:50%;
+  background:radial-gradient(circle at 38% 35%,rgba(255,209,102,0.18),transparent 70%);
+  pointer-events:none;
+}
+
+.contact-field-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px}
+.contact-field{display:flex;flex-direction:column;gap:7px}
+.contact-field-full{margin-bottom:20px}
+.contact-field-label{font-family:'Vollkorn',serif;font-size:11px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:var(--gold-light)}
+.contact-field-label .optional{font-family:'Be Vietnam Pro',sans-serif;font-size:9px;font-weight:400;letter-spacing:0.04em;text-transform:none;color:var(--text-muted);margin-left:6px}
+.contact-field-input{
+  background:var(--black-3);border:1px solid var(--gold-border);border-radius:var(--radius,4px);
+  color:var(--white);font-family:'EB Garamond',Georgia,serif;font-size:16px;padding:12px 16px;
+  outline:none;width:100%;transition:border-color var(--transition),box-shadow var(--transition);
+  -webkit-appearance:none;
+}
+.contact-field-input::placeholder{color:var(--text-muted)}
+.contact-field-input:focus{border-color:var(--gold-light);box-shadow:0 0 0 3px rgba(248,219,143,0.09)}
+.contact-field-input.err{border-color:#e05252;box-shadow:0 0 0 3px rgba(224,82,82,0.1)}
+textarea.contact-field-input{resize:vertical;min-height:148px;line-height:1.8}
+
+.contact-subject-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.contact-chip{
+  font-family:'Vollkorn',serif;font-size:11px;font-weight:600;letter-spacing:0.07em;
+  padding:5px 14px;border-radius:20px;border:1px solid var(--gold-border);
+  background:transparent;color:var(--text-muted);cursor:pointer;
+  transition:background var(--transition),color var(--transition),border-color var(--transition),transform var(--transition);
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+.contact-chip:hover{background:var(--gold-dim);color:var(--gold-light);border-color:var(--gold-light)}
+.contact-chip.selected{background:rgba(248,219,143,0.15);color:var(--gold-light);border-color:var(--gold-light);transform:scale(1.04)}
+
+.contact-submit-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:28px}
+.contact-submit-note{font-size:13px;color:var(--text-muted);font-style:italic;line-height:1.5}
+.contact-btn-send{
+  display:inline-flex;align-items:center;gap:9px;
+  background:linear-gradient(135deg,var(--gold-light),var(--gold-hover));
+  color:var(--black);border:none;border-radius:28px;font-family:'Vollkorn',serif;
+  font-size:13px;font-weight:700;letter-spacing:0.13em;text-transform:uppercase;
+  padding:13px 28px;cursor:pointer;
+  transition:transform var(--transition),box-shadow var(--transition),background var(--transition);
+  white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+.contact-btn-send:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(255,209,102,0.38);background:linear-gradient(135deg,var(--gold-hover),#FFB800)}
+.contact-btn-send:active{transform:scale(0.97)}
+.contact-btn-send:disabled{opacity:0.55;pointer-events:none}
+.contact-btn-send .send-icon{transition:transform var(--transition)}
+.contact-btn-send:hover .send-icon{transform:translateX(3px) translateY(-1px)}
+
+.contact-form-success{
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:32px 20px;gap:16px;
+}
+.contact-success-orb{
+  width:72px;height:72px;border-radius:50%;
+  background:radial-gradient(circle at 38% 35%,var(--gold-hover),#B8860B 60%,#3a1a00);
+  box-shadow:0 0 24px rgba(255,209,102,0.5),0 0 52px rgba(255,209,102,0.2);
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+  animation:contactOrbPulse 2.4s ease-in-out infinite;
+}
+.contact-success-title{font-family:'Vollkorn',serif;font-size:22px;font-weight:700;color:var(--gold-light)}
+.contact-success-sub{font-size:15px;color:var(--text-muted);font-style:italic;line-height:1.75}
+.contact-btn-reset{
+  margin-top:8px;font-family:'Vollkorn',serif;font-size:12px;font-weight:600;
+  letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);background:transparent;
+  border:1px solid var(--gold-border);border-radius:20px;padding:8px 20px;cursor:pointer;
+  transition:color var(--transition),border-color var(--transition),background var(--transition);
+}
+.contact-btn-reset:hover{color:var(--gold-light);border-color:var(--gold-light);background:var(--gold-dim)}
+
+.contact-err-toast{
+  display:none;align-items:center;gap:8px;background:rgba(224,82,82,0.1);
+  border:1px solid rgba(224,82,82,0.3);border-radius:var(--radius,4px);padding:10px 16px;
+  margin-top:14px;font-size:13px;color:#e05252;font-style:italic;
+}
+.contact-err-toast.show{display:flex}
+
+/* Sidebar */
+.contact-sidebar{display:flex;flex-direction:column;gap:20px}
+.contact-info-card{
+  background:var(--black-2);border:1px solid var(--gold-border);border-radius:10px;
+  padding:26px 22px;transition:border-color var(--transition),box-shadow var(--transition);
+}
+.contact-info-card:hover{border-color:rgba(248,219,143,0.42);box-shadow:0 0 28px rgba(248,219,143,0.06)}
+.contact-info-card-icon{
+  width:40px;height:40px;border-radius:50%;background:var(--gold-dim);
+  border:1px solid var(--gold-border);display:flex;align-items:center;justify-content:center;
+  margin-bottom:14px;color:var(--gold-light);
+}
+.contact-info-card-label{font-family:'Vollkorn',serif;font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold-light);margin-bottom:6px}
+.contact-info-card-value{font-size:15px;color:var(--white);line-height:1.7}
+.contact-info-card-note{font-size:12px;color:var(--text-muted);font-style:italic;margin-top:6px;line-height:1.6}
+
+.contact-orb-widget{
+  background:var(--black-2);border:1px solid var(--gold-border);border-radius:10px;
+  padding:28px 22px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;
+}
+.contact-orb-large{
+  width:60px;height:60px;border-radius:50%;
+  background:radial-gradient(circle at 38% 35%,var(--gold-hover),#B8860B 60%,#3a1a00);
+  box-shadow:0 0 18px rgba(255,209,102,0.5),0 0 40px rgba(255,209,102,0.18);
+  animation:contactOrbPulse 2.6s ease-in-out infinite;position:relative;
+}
+.contact-orb-large::after{
+  content:'';position:absolute;inset:-7px;border-radius:50%;
+  border:1px solid rgba(248,219,143,0.22);animation:contactOrbRing 2.6s ease-in-out infinite;
+}
+.contact-orb-widget-title{font-family:'Vollkorn',serif;font-size:14px;font-weight:700;color:var(--gold-light);line-height:1.4}
+.contact-orb-widget-sub{font-size:13px;color:var(--text-muted);font-style:italic;line-height:1.7}
+.contact-stars-row{display:flex;gap:6px;opacity:0.45}
+.contact-stars-row span{font-size:10px;color:var(--gold-light);animation:contactStarTwinkle 2s ease-in-out infinite}
+.contact-stars-row span:nth-child(2){animation-delay:.4s}
+.contact-stars-row span:nth-child(3){animation-delay:.8s}
+.contact-stars-row span:nth-child(4){animation-delay:1.2s}
+.contact-stars-row span:nth-child(5){animation-delay:1.6s}
+
+@keyframes contactOrbPulse{0%,100%{box-shadow:0 0 20px rgba(255,209,102,0.55),0 0 40px rgba(255,209,102,0.2)}50%{box-shadow:0 0 32px rgba(255,209,102,0.85),0 0 64px rgba(255,209,102,0.35)}}
+@keyframes contactOrbRing{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.1);opacity:1}}
+@keyframes contactStarTwinkle{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.45)}}
+@keyframes contactSpin{to{transform:rotate(360deg)}}
+
+@media(prefers-reduced-motion:reduce){
+  .contact-success-orb,.contact-orb-large,.contact-orb-large::after,.contact-stars-row span{animation:none}
+}
+
+@media(max-width:767px){
+  .contact-page-wrap{padding:40px 16px 72px}
+  .contact-heading{font-size:clamp(28px,8vw,40px);margin-bottom:16px}
+  .contact-lead{font-size:15px;max-width:100%}
+  .contact-lead:last-of-type{margin-bottom:32px}
+  .contact-layout{grid-template-columns:1fr;gap:28px}
+  .contact-form-card{padding:24px 18px;border-radius:10px}
+  .contact-field-row{grid-template-columns:1fr;gap:16px}
+  .contact-chip{font-size:10px;padding:6px 12px}
+  .contact-submit-row{flex-direction:column;align-items:stretch;gap:12px;margin-top:20px}
+  .contact-btn-send{width:100%;justify-content:center;padding:14px 20px;font-size:12px}
+  .contact-submit-note{text-align:center;font-size:12px}
+  .contact-info-card{padding:20px 16px}
+  .contact-orb-widget{padding:22px 16px}
+  .contact-sidebar{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .contact-sidebar .contact-orb-widget{grid-column:1 / -1}
+  textarea.contact-field-input{min-height:120px}
+  .contact-form-success{padding:24px 12px}
+  .contact-success-orb{width:60px;height:60px;font-size:22px}
+  .contact-success-title{font-size:18px}
+  .contact-success-sub{font-size:14px}
+}
+@media(max-width:420px){.contact-sidebar{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<canvas id="starsCanvas"></canvas>
+
+<!-- ════════ HEADER (giống hệt trang chủ / trang Quỹ Đạo Luân Chuyển) ════════ -->
+<header id="header">
+  <div class="header-inner">
+    <div class="header-logo-row">
+      <button class="hamburger" id="hamburger" aria-label="Mở menu">
+        <span></span><span></span><span></span>
+      </button>
+      <a class="logo" href="/">
+        <img class="logo-img" src="https://phongdocsokhong.wordpress.com/wp-content/uploads/2026/05/logo-ngang.png" alt="Phòng Đọc Số 0" width="240" height="72" fetchpriority="high" decoding="sync"/>
+      </a>
+      <div class="header-right">
+        <div class="search-bar">
+          <input type="text" placeholder="Tìm truyện..."/>
+          <button aria-label="Tìm kiếm">
+            <svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </button>
+        </div>
+        <button class="mobile-search-icon" id="mobileSearchIcon" aria-label="Tìm kiếm">
+          <svg fill="none" height="17" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="17"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="header-nav-row">
+      <nav>
+        <a href="/">Trang Chủ</a>
+        <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+        <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+        <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<!-- Overlay + Mobile Drawer -->
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-head">
+    <span class="mobile-menu-title">Menu</span>
+    <span class="swipe-hint-label">vuốt để đóng</span>
+  </div>
+  <div class="mobile-search-wrap">
+    <div class="search-bar">
+      <input id="mobileDrawerSearchInput" type="text" placeholder="Tìm truyện" readonly/>
+      <button id="mobileDrawerSearchBtn"><svg fill="none" height="15" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="15"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+    </div>
+  </div>
+  <nav>
+    <a href="/">Trang Chủ</a>
+    <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+    <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+    <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+  </nav>
+  <div class="mobile-menu-footer">
+    <div class="mobile-menu-footer-line"></div>
+    <span class="mobile-menu-footer-gem">✦</span>
+    <div class="mobile-menu-footer-line" style="background:linear-gradient(to left,var(--gold-border),transparent)"></div>
+  </div>
+</div>
+
+<!-- Search Overlay -->
+<div class="search-overlay" id="searchOverlay">
+  <button class="search-overlay-close" id="searchOverlayClose">×</button>
+  <div class="search-overlay-title">✦ Tìm Kiếm Truyện</div>
+  <div class="search-bar">
+    <input id="searchOverlayInput" type="text" placeholder="Nhập tên truyện, thể loại..." autocomplete="off" spellcheck="false"/>
+    <button id="searchOverlayBtn"><svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="18"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+  </div>
+  <div class="search-hint" id="searchHint">Gõ để tìm truyện trong thư viện...</div>
+  <div class="search-results" id="searchResults"></div>
+  <div class="search-not-found" id="searchNotFound">
+    <svg class="search-nf-cosmos" viewBox="0 0 220 160" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient cx="50%" cy="50%" id="nfBg" r="50%"><stop offset="0%" stop-color="#1a0f2e"/><stop offset="100%" stop-color="#0a0a0a"/></radialGradient></defs><ellipse cx="110" cy="80" fill="url(#nfBg)" opacity="0.6" rx="100" ry="70"/><g fill="#F8DB8F" opacity="0.5"><circle cx="30" cy="25" r="1"/><circle cx="80" cy="15" r="0.7"/><circle cx="140" cy="20" r="1.2"/><circle cx="190" cy="35" r="0.8"/><circle cx="55" cy="50" r="0.6"/><circle cx="170" cy="55" r="1"/><circle cx="20" cy="80" r="0.9"/><circle cx="200" cy="90" r="0.7"/></g><circle cx="110" cy="72" fill="none" r="32" stroke="rgba(248,219,143,0.25)" stroke-width="2"/><line stroke="rgba(248,219,143,0.3)" stroke-linecap="round" stroke-width="3" x1="133" x2="152" y1="95" y2="114"/><text fill="rgba(248,219,143,0.2)" font-family="Vollkorn,serif" font-size="28" font-weight="700" text-anchor="middle" x="110" y="82">?</text></svg>
+    <div class="search-nf-title">Không tìm thấy truyện nào</div>
+    <div class="search-nf-sub" id="searchNfQuery"></div>
+    <div class="search-nf-tip">Thử tìm với từ khóa khác hoặc kiểm tra thể loại trong thư viện.</div>
+  </div>
+</div>
+
+<!-- ════════ NỘI DUNG TRANG LIÊN HỆ ════════ -->
+<main class="contact-page-wrap">
+
+  <div class="contact-eyebrow">✦ Kết Nối Với Chúng Mình</div>
+  <h1 class="contact-heading">Gửi Tin Nhắn<br>Tới <em>Phòng Đọc</em></h1>
+  <p class="contact-lead">Mọi góp ý, hợp tác, báo lỗi truyện hay đơn giản là muốn chia sẻ cảm nhận — chúng mình đều trân trọng từng lời nhắn của lữ khách.</p>
+  <p class="contact-lead">Nếu chúng mình được biết về thông tin bản quyền ở Việt Nam, thì sẽ lập tức gỡ truyện trên tất cả nền tảng thuộc sở hữu của Phòng Đọc Số 0 để ủng hộ sách phát hành nhé.</p>
+  <div class="shimmer-line" style="margin-bottom:56px"></div>
+
+  <div class="contact-layout">
+
+    <!-- Form card -->
+    <div class="contact-form-card" id="formCard">
+      <div class="contact-form-card-orb"></div>
+
+      <form id="contactForm" novalidate>
+
+        <div class="contact-field-row">
+          <div class="contact-field">
+            <label class="contact-field-label" for="cName">Danh xưng</label>
+            <input class="contact-field-input" id="cName" type="text" placeholder="Tên lữ khách..." maxlength="60" autocomplete="off"/>
+          </div>
+          <div class="contact-field">
+            <label class="contact-field-label" for="cEmail">
+              Email <span class="optional">(để nhận phản hồi)</span>
+            </label>
+            <input class="contact-field-input" id="cEmail" type="email" placeholder="email@example.com" autocomplete="off"/>
+          </div>
+        </div>
+
+        <div class="contact-field-full">
+          <label class="contact-field-label">Chủ đề</label>
+          <div class="contact-subject-chips" id="subjectChips">
+            <button type="button" class="contact-chip selected" data-val="Góp ý chung">Góp ý chung</button>
+            <button type="button" class="contact-chip" data-val="Báo lỗi truyện">Báo lỗi truyện</button>
+            <button type="button" class="contact-chip" data-val="Hợp tác biên tập (edit)">Hợp tác biên tập (edit)</button>
+            <button type="button" class="contact-chip" data-val="Đề xuất truyện mới">Đề xuất truyện mới</button>
+            <button type="button" class="contact-chip" data-val="Khác">Khác</button>
+          </div>
+        </div>
+
+        <div class="contact-field-full">
+          <label class="contact-field-label" for="cMsg">Lời nhắn</label>
+          <textarea class="contact-field-input" id="cMsg" placeholder="Chia sẻ điều lữ khách muốn nói với Phòng Đọc Số 0..." maxlength="2000"></textarea>
+        </div>
+
+        <div class="contact-err-toast" id="errToast">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span id="errMsg">Vui lòng điền đầy đủ thông tin bắt buộc.</span>
+        </div>
+
+        <div class="contact-submit-row">
+          <button class="contact-btn-send" type="submit" id="sendBtn">
+            <svg class="send-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9"/>
+            </svg>
+            Gửi Tin Nhắn
+          </button>
+        </div>
+
+      </form>
+
+      <!-- Success state -->
+      <div class="contact-form-success" id="formSuccess">
+        <div class="contact-success-orb">✦</div>
+        <div class="contact-success-title">Tin Nhắn Đã Được Gửi!</div>
+        <p class="contact-success-sub">Cảm ơn lữ khách đã dành thời gian kết nối.<br>Chúng mình sẽ phản hồi sớm nhất có thể.</p>
+        <div class="contact-stars-row">
+          <span>✦</span><span>✦</span><span>✦</span><span>✦</span><span>✦</span>
+        </div>
+        <button class="contact-btn-reset" type="button" onclick="resetContactForm()">Gửi tin nhắn khác</button>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="contact-sidebar">
+
+      <div class="contact-orb-widget">
+        <div class="contact-orb-large"></div>
+        <div class="contact-orb-widget-title">Phòng Đọc Số 0</div>
+        <div class="contact-orb-widget-sub">Nơi những lữ khách tìm thấy nhau trong vũ trụ gay go.</div>
+        <div class="contact-stars-row"><span>✦</span><span>✦</span><span>✦</span><span>✦</span><span>✦</span></div>
+      </div>
+
+      <div class="contact-info-card">
+        <div class="contact-info-card-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div class="contact-info-card-label">Thời Gian Phản Hồi</div>
+        <div class="contact-info-card-value">5 – 10 ngày làm việc</div>
+        <div class="contact-info-card-note">Với tin nhắn hợp tác có thể sẽ chậm hơn một chút</div>
+      </div>
+
+      <div class="contact-info-card">
+        <div class="contact-info-card-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+        </div>
+        <div class="contact-info-card-label">Chúng Mình Trân Trọng</div>
+        <div class="contact-info-card-value" style="font-size:14px; line-height:1.9;">
+          ✦ Góp ý nội dung &amp; lỗi chính tả<br>
+          ✦ Đề xuất truyện mới<br>
+          ✦ Hợp tác biên tập &amp; beta-read<br>
+          ✦ Cảm nhận của lữ khách
+        </div>
+      </div>
+
+    </aside>
+  </div>
+</main>
+
+<!-- ════════ FOOTER (giống hệt trang chủ / trang Quỹ Đạo Luân Chuyển) ════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">✦ Phòng Đọc Số 0 ✦</div>
+    <div class="footer-links">
+      <a href="/p/lien-he">Liên Hệ</a>
+      <a href="/p/quy-dinh">Quy Định</a>
+    </div>
+    <div class="footer-copy">© <span id="footerYearPds">2026</span> Phòng Đọc Số 0 · Thiếu Gay Hồn Bay Một Nửa
+      <span style="display:block;">Cảm ơn chủ sốp Noisy Team đã hướng dẫn tui cook web này</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Back to top (giữ nguyên) -->
+<button id="btt" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Về đầu trang">
+  <div class="btt-ring"></div>
+  <svg class="btt-icon" fill="none" height="16" viewBox="0 0 16 16" width="16"><line stroke="#F8DB8F" stroke-linecap="round" stroke-width="1.8" x1="8" x2="8" y1="12" y2="4"/><polyline fill="none" points="4.5,7 8,3.5 11.5,7" stroke="#F8DB8F" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/></svg>
+  <span class="btt-label">TOP</span>
+</button>
+
+<!-- Scripts — thứ tự giữ nguyên như trang Quỹ Đạo Luân Chuyển: config.js,
+     auth.js (tự bỏ qua gate cho path /p/), app.js lo header sticky, search
+     overlay, mobile menu, back-to-top. Mọi hàm init tự return sớm nếu
+     không thấy phần tử tương ứng nên không lỗi khi trang này không có
+     banner/coverflow/carousel/mars của trang chủ. -->
+<script src="/js/config.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/app.js"></script>
+
+<script>
+// ════════════════════════════════════
+// Stars Canvas — dùng lại y hệt hiệu ứng nền của trang Quỹ Đạo Luân Chuyển
+// ════════════════════════════════════
+(function(){
+  const c   = document.getElementById('starsCanvas');
+  const ctx = c.getContext('2d', { alpha: true, desynchronized: true });
+
+  let stars = [], raf, W, H;
+  const isMobile = window.innerWidth < 721;
+  const DENSITY = isMobile ? 0.12 : 0.3;
+
+  function resize(){ W = c.width = window.innerWidth; H = c.height = window.innerHeight; buildStars(); }
+  function buildStars(){
+    const n = Math.floor(W * DENSITY);
+    stars = new Array(n);
+    for(let i = 0; i < n; i++){
+      stars[i] = { x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.4+0.3, a: Math.random()*0.8+0.2, phase: Math.random()*6.28318, speed: Math.random()*0.012+0.005, gold: Math.random() > 0.45 };
+    }
+  }
+  let lastFrameTime = 0;
+  const TARGET_FPS = isMobile ? 30 : 60;
+  const FRAME_MS = 1000 / TARGET_FPS;
+  function draw(now){
+    raf = requestAnimationFrame(draw);
+    if(now - lastFrameTime < FRAME_MS) return;
+    lastFrameTime = now;
+    ctx.clearRect(0,0,W,H);
+    for(let i=0;i<stars.length;i++){ const s=stars[i]; if(!s.gold) continue; s.phase+=s.speed; ctx.globalAlpha = s.a*(0.5+0.5*Math.sin(s.phase)); ctx.fillStyle='rgba(248,219,143,1)'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.28318); ctx.fill(); }
+    for(let i=0;i<stars.length;i++){ const s=stars[i]; if(s.gold) continue; s.phase+=s.speed; ctx.globalAlpha = s.a*(0.5+0.5*Math.sin(s.phase)); ctx.fillStyle='rgba(200,168,75,1)'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.28318); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){ cancelAnimationFrame(raf); } else { lastFrameTime = 0; raf = requestAnimationFrame(draw); }
+  });
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 200); });
+  resize();
+  raf = requestAnimationFrame(draw);
+})();
+
+/* ════════════════════════
+   SUBJECT CHIPS
+════════════════════════ */
+let contactSelectedSubject = 'Góp ý chung';
+document.querySelectorAll('.contact-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.contact-chip').forEach(c => c.classList.remove('selected'));
+    chip.classList.add('selected');
+    contactSelectedSubject = chip.dataset.val;
+  });
+});
+
+/* ════════════════════════
+   EMAILJS — lazy load, chỉ tải SDK khi user bắt đầu tương tác với form
+   (focus/hover vào form), không tải ngay lúc page load
+════════════════════════ */
+const EMAILJS_PUBLIC_KEY  = 'vY4in7xAyRl634FA4';
+const EMAILJS_SERVICE_ID  = 'service_v8jajqj';
+const EMAILJS_TEMPLATE_ID = 'template_ev9f2qo';
+
+let emailjsLoaded = false;
+
+function loadEmailJS() {
+  if (emailjsLoaded) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+    s.onload = () => {
+      emailjs.init(EMAILJS_PUBLIC_KEY);
+      emailjsLoaded = true;
+      resolve();
+    };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+const contactFormCard = document.getElementById('formCard');
+let contactPreloadDone = false;
+function contactPreloadOnce() {
+  if (contactPreloadDone) return;
+  contactPreloadDone = true;
+  loadEmailJS().catch(() => {}); // silent — sẽ retry lúc submit
+}
+contactFormCard.addEventListener('focusin', contactPreloadOnce, { once: false });
+contactFormCard.addEventListener('pointerenter', contactPreloadOnce, { once: true });
+
+/* ════════════════════════
+   FORM SUBMIT
+════════════════════════ */
+document.getElementById('contactForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+
+  const name     = document.getElementById('cName').value.trim();
+  const email    = document.getElementById('cEmail').value.trim();
+  const msg      = document.getElementById('cMsg').value.trim();
+  const errToast = document.getElementById('errToast');
+  const errMsgEl = document.getElementById('errMsg');
+  const sendBtn  = document.getElementById('sendBtn');
+
+  ['cName', 'cMsg'].forEach(id => document.getElementById(id).classList.remove('err'));
+  errToast.classList.remove('show');
+
+  let hasErr = false;
+  if (!name) { document.getElementById('cName').classList.add('err'); hasErr = true; }
+  if (!msg)  { document.getElementById('cMsg').classList.add('err');  hasErr = true; }
+  if (hasErr) {
+    errMsgEl.textContent = 'Vui lòng điền Danh xưng và Lời nhắn để gửi.';
+    errToast.classList.add('show');
+    return;
+  }
+
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    document.getElementById('cEmail').classList.add('err');
+    errMsgEl.textContent = 'Địa chỉ email không hợp lệ.';
+    errToast.classList.add('show');
+    return;
+  }
+
+  sendBtn.disabled = true;
+  sendBtn.innerHTML = `
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:contactSpin 1s linear infinite">
+      <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/>
+    </svg>
+    Đang gửi...`;
+
+  try {
+    await loadEmailJS();
+
+    await emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_ID,
+      {
+        name       : name,
+        from_name  : name,
+        from_email : email || 'Không cung cấp',
+        subject    : `[Phòng Đọc Số 0] ${contactSelectedSubject} — ${name}`,
+        message    : msg,
+        reply_to   : email || 'haluna2711@gmail.com',
+      },
+      EMAILJS_PUBLIC_KEY
+    );
+
+    document.getElementById('contactForm').style.display = 'none';
+    document.getElementById('formSuccess').style.display = 'flex';
+
+  } catch (err) {
+    console.error('EmailJS error:', err);
+    sendBtn.disabled = false;
+    sendBtn.innerHTML = `
+      <svg class="send-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9"/>
+      </svg>
+      Gửi Tin Nhắn`;
+    errMsgEl.textContent = 'Gửi thất bại. Vui lòng thử lại hoặc liên hệ qua email trực tiếp.';
+    errToast.classList.add('show');
+  }
+});
+
+/* ════════════════════════
+   RESET FORM
+════════════════════════ */
+function resetContactForm() {
+  const form    = document.getElementById('contactForm');
+  const success = document.getElementById('formSuccess');
+  const sendBtn = document.getElementById('sendBtn');
+
+  form.reset();
+  form.style.display = '';
+  success.style.display = 'none';
+  sendBtn.disabled = false;
+  sendBtn.innerHTML = `
+    <svg class="send-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9"/>
+    </svg>
+    Gửi Tin Nhắn`;
+
+  document.querySelectorAll('.contact-chip').forEach((c, i) => c.classList.toggle('selected', i === 0));
+  contactSelectedSubject = 'Góp ý chung';
+  ['cName', 'cEmail', 'cMsg'].forEach(id => document.getElementById(id).classList.remove('err'));
+  document.getElementById('errToast').classList.remove('show');
+}
+</script>
+</body>
+</html>
