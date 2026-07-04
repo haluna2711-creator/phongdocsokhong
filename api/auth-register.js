@@ -73,6 +73,10 @@ module.exports = async function handler(req, res) {
 
     // ── Đăng ký: tạo mã mới, gửi email ──
     if (action === 'register') {
+      // Luôn kiểm tra email đã có sẵn trong bảng "readers" TRƯỚC — người đã
+      // đăng ký từ trước đó (đã có access_code) không bị ảnh hưởng bởi việc
+      // khoá cổng, họ vẫn được báo "already_registered" như bình thường để
+      // front-end chuyển họ sang bước đăng nhập (action=verify).
       const { data: existing, error: selErr } = await db
         .from('readers')
         .select('id, disabled')
@@ -85,6 +89,20 @@ module.exports = async function handler(req, res) {
           return res.status(200).json({ ok: false, reason: 'account_disabled' });
         }
         return res.status(200).json({ ok: false, reason: 'already_registered' });
+      }
+
+      // Email này CHƯA từng đăng ký → đây là người đăng ký mới. Chỉ ở
+      // trường hợp này mới kiểm tra cổng đăng ký có đang bị admin khoá
+      // không (/admin/settings.html). Người đã đăng ký (nhánh ở trên) luôn
+      // được đăng nhập bình thường dù cổng đang khoá.
+      const { data: gate, error: gateErr } = await db
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'registration_open')
+        .maybeSingle();
+      const registrationOpen = gateErr ? true : (gate ? gate.value !== false : true);
+      if (!registrationOpen) {
+        return res.status(200).json({ ok: false, reason: 'registration_closed' });
       }
 
       const code = genCode();
