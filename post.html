@@ -589,7 +589,7 @@
           <a class="read-btn" href="#" id="readBtn">✦ Đọc ngay</a>
           <button class="save-btn" id="saveBtn" type="button">
             <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="1.6" fill="none"><path d="M10 17s-6.5-4.1-6.5-9A3.9 3.9 0 0110 5.8 3.9 3.9 0 0116.5 8c0 4.9-6.5 9-6.5 9z"/></svg>
-            <span id="saveBtnLabel">Lưu / Mượn Sách</span>
+            <span id="saveBtnLabel">Mượn Sách</span>
           </button>
         </div>
       </div>
@@ -811,7 +811,7 @@ function updateSaveBtnUI(saved){
   const btn = document.getElementById('saveBtn');
   const label = document.getElementById('saveBtnLabel');
   btn.classList.toggle('saved', saved);
-  label.textContent = saved ? 'Đã Mượn ✓' : 'Lưu / Mượn Sách';
+  label.textContent = saved ? 'Đã Mượn ✓' : 'Mượn Sách';
 }
 
 function doToggleSave(email){
@@ -969,18 +969,35 @@ document.getElementById('tocSearch').addEventListener('input', function() {
   }, 250);
 });
 
+// credentials: 'omit' — KHÔNG gửi cookie phiên admin khi gọi API công khai này.
+// Trang truyện là trang đọc công khai: nếu trình duyệt đang có sẵn cookie đăng
+// nhập admin (vd. mở song song tab quản trị), fetch() mặc định (same-origin)
+// vẫn kèm cookie đó theo request → API hiểu nhầm là admin và trả về luôn cả
+// chương "draft"/"scheduled" (chưa đến giờ đăng) cũng như truyện chưa published.
+// Ép "omit" đảm bảo trang này LUÔN thấy đúng những gì độc giả thường thấy,
+// bất kể tài khoản nào đang đăng nhập trên trình duyệt.
+async function fetchJSON(url, signal) {
+  const res = await fetch(url, { signal, credentials: 'omit' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
 async function loadNovel() {
   const slug = novelSlugFromPath();
   if (!slug) { showError(); return; }
 
   try {
-    const res = await fetch(`/api/novels?slug=${encodeURIComponent(slug)}`);
-    const data = await res.json();
+    // Gọi song song /api/novels (theo slug) và /api/chapters (theo novel_slug)
+    // thay vì tuần tự chờ novel_id trả về rồi mới xin mục lục — /api/chapters
+    // đã hỗ trợ lọc trực tiếp theo novel_slug nên không cần đợi. Giảm một
+    // vòng round-trip mạng, trang tải nhanh hơn rõ rệt trên mạng chậm/di động.
+    const [data, chData] = await Promise.all([
+      fetchJSON(`/api/novels?slug=${encodeURIComponent(slug)}`),
+      fetchJSON(`/api/chapters?novel_slug=${encodeURIComponent(slug)}`),
+    ]);
     if (!data.ok || !data.novels || !data.novels.length) { showError(); return; }
     NOVEL = data.novels[0];
 
-    const chRes = await fetch(`/api/chapters?novel_id=${encodeURIComponent(NOVEL.id)}`);
-    const chData = await chRes.json();
     chapters = (chData.ok && chData.chapters) ? chData.chapters : [];
     chapters.sort((a, b) => a.chapter_number - b.chapter_number);
 
