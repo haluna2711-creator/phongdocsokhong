@@ -738,8 +738,15 @@
 /* ═══════════════════════════════════════
    THẺ BẠN ĐỌC — thư viện lưu cục bộ (localStorage), dùng chung với trang
    /p/the-ban-doc. Khoá lưu trữ và cấu trúc dữ liệu PHẢI khớp giữa 2 trang.
+
+   Email "đang hoạt động" dùng chung ĐÚNG MỘT khoá với cổng vào (auth.js),
+   đọc từ PDS_CONFIG.SAVED_EMAIL_KEY.
+
+   Mỗi phần tử trong card.novels[slug]: {..., savedAt, returned, returnedAt}.
+   "Trả Sách" (thực hiện ở trang /p/the-ban-doc) KHÔNG xoá phần tử này —
+   chỉ đánh dấu returned:true. Nhờ vậy trang truyện này biết cuốn sách đã
+   từng được mượn để hiển thị nút "Mượn Lại" thay vì "Mượn Sách".
    ═══════════════════════════════════════ */
-const PDS_ACTIVE_KEY = 'pds_active_email';
 
 function pdsNormEmail(e){ return (e || '').trim().toLowerCase(); }
 function pdsCardKey(email){ return 'pds_card_' + pdsNormEmail(email); }
@@ -748,8 +755,8 @@ function pdsHashCardNo(email){
   for(let i = 0; i < s.length; i++){ h = (h * 31 + s.charCodeAt(i)) >>> 0; }
   return 'PDS-' + String(h % 1000000).padStart(6, '0');
 }
-function pdsGetActiveEmail(){ return localStorage.getItem(PDS_ACTIVE_KEY) || ''; }
-function pdsSetActiveEmail(email){ localStorage.setItem(PDS_ACTIVE_KEY, pdsNormEmail(email)); }
+function pdsGetActiveEmail(){ return pdsNormEmail(localStorage.getItem(PDS_CONFIG.SAVED_EMAIL_KEY) || ''); }
+function pdsSetActiveEmail(email){ localStorage.setItem(PDS_CONFIG.SAVED_EMAIL_KEY, pdsNormEmail(email)); }
 function pdsGetCard(email){
   const key = pdsCardKey(email);
   try{
@@ -761,18 +768,41 @@ function pdsGetCard(email){
   return card;
 }
 function pdsSaveCard(card){ localStorage.setItem(pdsCardKey(card.email), JSON.stringify(card)); }
+
+// "Đang mượn" = có bản ghi trong novels VÀ chưa bị đánh dấu returned.
 function pdsIsSaved(email, slug){
   if(!email || !slug) return false;
-  return !!pdsGetCard(email).novels[slug];
+  const rec = pdsGetCard(email).novels[slug];
+  return !!rec && !rec.returned;
 }
+
+// "Đã từng mượn rồi trả" = có bản ghi nhưng returned:true — dùng để hiện
+// nút "Mượn Lại" thay vì "Mượn Sách".
+function pdsWasReturned(email, slug){
+  if(!email || !slug) return false;
+  const rec = pdsGetCard(email).novels[slug];
+  return !!rec && !!rec.returned;
+}
+
+// Bấm nút Mượn/Trả trên trang truyện:
+// - Đang mượn (returned:false) → chuyển thành trả (returned:true), GIỮ
+//   NGUYÊN bản ghi để biết đã từng mượn.
+// - Chưa từng mượn HOẶC đã trả trước đó → mượn (lại), ghi đè dữ liệu mới
+//   nhất của truyện (bìa, tiêu đề... có thể đã đổi) + savedAt mới.
 function pdsToggleNovel(email, novelData){
   const card = pdsGetCard(email);
-  if(card.novels[novelData.slug]){
-    delete card.novels[novelData.slug];
+  const existing = card.novels[novelData.slug];
+  if(existing && !existing.returned){
+    existing.returned = true;
+    existing.returnedAt = Date.now();
     pdsSaveCard(card);
     return false;
   }
-  card.novels[novelData.slug] = Object.assign({}, novelData, { savedAt: Date.now() });
+  card.novels[novelData.slug] = Object.assign({}, novelData, {
+    savedAt: Date.now(),
+    returned: false,
+    returnedAt: null,
+  });
   pdsSaveCard(card);
   return true;
 }
@@ -807,17 +837,20 @@ function confirmReaderGate(){
 }
 
 // ── Save / Mượn sách button ──
-function updateSaveBtnUI(saved){
+// state: 'borrowed' (đang mượn) | 'returned' (đã từng mượn, đã trả) | 'none' (chưa từng mượn)
+function updateSaveBtnUI(state){
   const btn = document.getElementById('saveBtn');
   const label = document.getElementById('saveBtnLabel');
-  btn.classList.toggle('saved', saved);
-  label.textContent = saved ? 'Đã Mượn ✓' : 'Mượn Sách';
+  btn.classList.toggle('saved', state === 'borrowed');
+  if(state === 'borrowed') label.textContent = 'Đã Mượn ✓';
+  else if(state === 'returned') label.textContent = 'Mượn Lại';
+  else label.textContent = 'Mượn Sách';
 }
 
 function doToggleSave(email){
   if(!NOVEL) return;
   const firstCh = chapters[0];
-  const saved = pdsToggleNovel(email, {
+  const nowBorrowed = pdsToggleNovel(email, {
     slug: NOVEL.slug,
     title: NOVEL.title,
     cover: NOVEL.cover_url || '',
@@ -826,7 +859,8 @@ function doToggleSave(email){
     chapterCount: NOVEL.chapter_count ?? chapters.length,
     readUrl: firstCh ? chapterUrl(firstCh) : `/post/${NOVEL.slug}`,
   });
-  updateSaveBtnUI(saved);
+  // Sau khi bấm, nếu không còn mượn nữa tức là vừa trả → hiện "Mượn Lại".
+  updateSaveBtnUI(nowBorrowed ? 'borrowed' : 'returned');
 }
 
 document.getElementById('saveBtn').addEventListener('click', function(){
@@ -899,7 +933,10 @@ function populateNovel() {
     this.textContent = desc.classList.contains('expanded') ? 'Thu gọn' : 'Xem thêm';
   });
 
-  updateSaveBtnUI(pdsIsSaved(pdsGetActiveEmail(), NOVEL.slug));
+  const activeEmail = pdsGetActiveEmail();
+  if (pdsIsSaved(activeEmail, NOVEL.slug)) updateSaveBtnUI('borrowed');
+  else if (pdsWasReturned(activeEmail, NOVEL.slug)) updateSaveBtnUI('returned');
+  else updateSaveBtnUI('none');
 }
 
 function highlight(text, query) {
