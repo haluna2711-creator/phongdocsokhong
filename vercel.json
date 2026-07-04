@@ -2,7 +2,7 @@
   "rewrites": [
     { "source": "/post/:slug",            "destination": "/post.html" },
     { "source": "/doc/:novel/:chapter",   "destination": "/doc.html" },
-    { "source": "/p/:slug",               "destination": "/page.html" },
+    { "source": "/p/:slug",               "destination": "/pages/:slug.html" },
     { "source": "/admin",                 "destination": "/admin/index.html" }
   ],
   "headers": [
