@@ -25,6 +25,25 @@
   const btnLogin     = document.getElementById('pdsBtnLogin');
   if (!regEmailEl) return;
 
+  // Kiểm tra ngay từ đầu xem admin có đang khoá cổng đăng ký MỚI không, để
+  // hiện gợi ý sớm cho người dùng. LƯU Ý: không disable input/nút — người
+  // ĐÃ đăng ký từ trước vẫn phải gõ được email và bấm "Nhận Mã Truy Cập" để
+  // server trả về "already_registered" rồi tự chuyển sang bước đăng nhập.
+  // Việc khoá chỉ áp dụng cho email HOÀN TOÀN MỚI, do server (api/auth-register.js)
+  // quyết định — ở đây chỉ hiện thông báo mang tính hướng dẫn.
+  fetch('/api/registration-gate')
+    .then(r => r.json())
+    .then(d => {
+      if (d && d.ok && d.open === false) {
+        const errEl = document.getElementById('pdsErr');
+        if (errEl) {
+          errEl.className = 'pds-err-msg info';
+          errEl.textContent = 'Đăng ký mới hiện đang tạm khoá. Nếu bạn đã có mã, bấm "Đăng nhập" bên dưới.';
+        }
+      }
+    })
+    .catch(() => {});
+
   regEmailEl.addEventListener('input', () => {
     btnReg.disabled = regEmailEl.value.trim().indexOf('@') < 1;
   });
@@ -79,6 +98,9 @@
         } else if (d.reason === 'account_disabled') {
           errEl.textContent = 'Tài khoản này đã bị khoá.';
           regEmailEl.classList.add('err');
+        } else if (d.reason === 'registration_closed') {
+          errEl.className = 'pds-err-msg info';
+          errEl.textContent = 'Email này chưa từng đăng ký và đăng ký mới hiện đang tạm khoá. Nếu bạn đã có mã, bấm "Đăng nhập" bên dưới.';
         } else {
           errEl.textContent = 'Có lỗi xảy ra. Vui lòng thử lại.';
           regEmailEl.classList.add('err');
@@ -172,6 +194,15 @@
     document.getElementById('pdsErr').textContent = '';
     localStorage.removeItem(PDS_CONFIG.SAVED_EMAIL_KEY);
     regEmailEl.value = ''; regEmailEl.focus();
+  };
+
+  // Cho người ĐÃ có mã truy cập đi thẳng vào bước đăng nhập, không phải phụ
+  // thuộc vào việc bấm "Nhận Mã Truy Cập" rồi chờ server trả về
+  // "already_registered". Quan trọng khi cổng đăng ký MỚI đang bị khoá —
+  // người đã có mã vẫn phải luôn vào được, bất kể trạng thái khoá/mở.
+  window.pdsGoLogin = function () {
+    const prefill = regEmailEl.value.trim();
+    goToStep2(prefill, 'Nhập email và mã truy cập của bạn.');
   };
 
   // Enter để submit
