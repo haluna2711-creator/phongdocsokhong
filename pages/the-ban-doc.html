@@ -468,6 +468,11 @@
        name, day, month, year, gender, addr, photo, quote, createdAt
      }
    }
+   Mỗi phần tử trong novels: { slug, title, cover, genre, ..., savedAt,
+   returned, returnedAt }. "Trả Sách" KHÔNG xoá hẳn phần tử này — chỉ đánh
+   dấu returned:true (+ returnedAt) — để trang post.html biết truyện này
+   đã từng được mượn và hiển thị nút "Mượn Lại" thay vì "Mượn Sách". Kệ
+   sách ở trang này chỉ hiển thị những cuốn có returned:false (đang mượn).
    ═══════════════════════════════════════ */
 function pdsNormEmail(e){ return (e || '').trim().toLowerCase(); }
 function pdsCardKey(email){ return 'pds_card_' + pdsNormEmail(email); }
@@ -488,9 +493,16 @@ function pdsGetCard(email){
   return card;
 }
 function pdsSaveCard(card){ localStorage.setItem(pdsCardKey(card.email), JSON.stringify(card)); }
-function pdsRemoveNovel(email, slug){
+
+// Trả sách — KHÔNG xoá hẳn khỏi novels, chỉ đánh dấu returned:true +
+// returnedAt. Giữ lại bản ghi để trang post.html biết sách này đã từng
+// được mượn, từ đó hiển thị nút "Mượn Lại" thay vì "Mượn Sách".
+function pdsReturnNovel(email, slug){
   const card = pdsGetCard(email);
-  delete card.novels[slug];
+  if(card.novels[slug]){
+    card.novels[slug].returned = true;
+    card.novels[slug].returnedAt = Date.now();
+  }
   pdsSaveCard(card);
 }
 
@@ -522,7 +534,7 @@ function buildBookCard(slug, novel){
     </div>`;
   el.querySelector('.btd-btn-return').addEventListener('click', () => {
     const email = pdsGetActiveEmail();
-    pdsRemoveNovel(email, slug);
+    pdsReturnNovel(email, slug);
     renderShelf(pdsGetCard(email));
   });
   return el;
@@ -532,7 +544,9 @@ function renderShelf(card){
   const wrap = document.getElementById('btdShelfWrap');
   const gridWrap = document.getElementById('btdGridWrap');
   const countEl = document.getElementById('btdShelfCount');
-  const slugs = Object.keys(card.novels);
+  // Chỉ hiển thị những cuốn ĐANG mượn (returned:false hoặc chưa có field
+  // này — dữ liệu cũ trước khi thêm tính năng trả sách vẫn coi là đang mượn).
+  const slugs = Object.keys(card.novels).filter(slug => !card.novels[slug].returned);
 
   wrap.style.display = '';
 
