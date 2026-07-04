@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="vi" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Quy Định – Phòng Đọc Số 0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preload" as="style"
+  href="https://fonts.googleapis.com/css2?family=Vollkorn:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Be+Vietnam+Pro:wght@400;500&display=swap"
+  onload="this.onload=null;this.rel='stylesheet'"/>
+<noscript>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Vollkorn:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Be+Vietnam+Pro:wght@400;500&display=swap"/>
+</noscript>
+<link rel="stylesheet" href="/css/style.css"/>
+
+<!-- ════════════════════════════════════
+     CSS riêng cho trang Quy Định (không có trong style.css dùng chung).
+     Không định nghĩa lại :root / reset / noise-grain / .shimmer-line /
+     header / footer / search-overlay / mobile-menu / #btt vì style.css
+     đã có sẵn — tránh trùng lặp và lệch giá trị về sau.
+     Toàn bộ class riêng của trang này đặt tiền tố "qd-" (Quy Định) để
+     không đụng với class của các trang khác (theo đúng quy ước "orbit-"
+     của trang Quỹ Đạo Luân Chuyển).
+     ════════════════════════════════════ -->
+<style>
+#starsCanvas{
+  position:fixed;inset:0;width:100%;height:100%;
+  pointer-events:none;z-index:0;opacity:0.65;
+  transform:translateZ(0);
+}
+
+.qd-page-wrap{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:68px 28px 100px}
+
+.qd-eyebrow{font-family:'Vollkorn',serif;font-size:11px;font-weight:600;letter-spacing:0.32em;text-transform:uppercase;color:var(--gold-light);opacity:0.7;margin-bottom:14px}
+.qd-heading{font-family:'Vollkorn',serif;font-size:clamp(34px,6vw,54px);font-weight:900;line-height:1.1;color:var(--white);margin-bottom:18px}
+.qd-heading em{color:var(--gold-light);font-style:italic}
+.qd-lead{font-size:16px;color:var(--text-muted);line-height:1.9;max-width:580px;margin-bottom:56px}
+
+/* ── Rules grid ── */
+.qd-rules-grid{display:flex;flex-direction:column;gap:16px}
+
+.qd-rule-card{
+  display:flex;align-items:flex-start;gap:20px;
+  background:var(--black-2);border:1px solid var(--gold-border);
+  border-radius:10px;padding:24px 26px;position:relative;overflow:hidden;
+  transition:border-color var(--transition),box-shadow var(--transition),transform var(--transition);
+  cursor:default;isolation:isolate;
+}
+.qd-rule-card::before{
+  content:'';position:absolute;top:0;left:0;width:3px;height:100%;
+  background:linear-gradient(to bottom,var(--gold-light),transparent);
+  opacity:0;transition:opacity var(--transition);
+}
+.qd-rule-card:hover{border-color:rgba(248,219,143,0.45);box-shadow:0 0 32px rgba(248,219,143,0.07);transform:translateX(4px)}
+.qd-rule-card:hover::before{opacity:1}
+
+.qd-rule-num{
+  flex-shrink:0;width:40px;height:40px;border-radius:50%;
+  background:var(--gold-dim);border:1px solid var(--gold-border);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Vollkorn',serif;font-size:15px;font-weight:700;color:var(--gold-light);
+  transition:background var(--transition),border-color var(--transition),box-shadow var(--transition);
+  margin-top:1px;
+}
+.qd-rule-card:hover .qd-rule-num{background:rgba(248,219,143,0.18);border-color:var(--gold-light);box-shadow:0 0 12px rgba(248,219,143,0.25)}
+
+.qd-rule-body{flex:1;min-width:0}
+.qd-rule-title{font-family:'Vollkorn',serif;font-size:16px;font-weight:700;color:var(--gold-light);letter-spacing:0.02em;margin-bottom:6px;line-height:1.3}
+.qd-rule-desc{font-size:15px;color:rgba(245,240,232,0.72);line-height:1.85}
+
+.qd-rule-icon{flex-shrink:0;color:var(--gold-border);margin-top:2px;transition:color var(--transition)}
+.qd-rule-card:hover .qd-rule-icon{color:var(--gold-light)}
+
+/* ── Closing note ── */
+.qd-closing-note{
+  margin-top:52px;background:var(--black-2);border:1px solid var(--gold-border);
+  border-radius:12px;padding:32px 30px;display:flex;align-items:flex-start;gap:20px;
+  transition:border-color var(--transition),box-shadow var(--transition);
+}
+.qd-closing-note:hover{border-color:rgba(248,219,143,0.4);box-shadow:0 0 36px rgba(248,219,143,0.06)}
+.qd-closing-orb{
+  flex-shrink:0;width:52px;height:52px;border-radius:50%;
+  background:radial-gradient(circle at 38% 35%,var(--gold-hover),#B8860B 60%,#3a1a00);
+  box-shadow:0 0 16px rgba(255,209,102,0.45),0 0 36px rgba(255,209,102,0.16);
+  animation:qdOrbPulse 2.8s ease-in-out infinite;position:relative;
+}
+.qd-closing-orb::after{
+  content:'';position:absolute;inset:-5px;border-radius:50%;
+  border:1px solid rgba(248,219,143,0.22);animation:qdOrbRing 2.8s ease-in-out infinite;
+}
+.qd-closing-text{flex:1}
+.qd-closing-title{font-family:'Vollkorn',serif;font-size:17px;font-weight:700;color:var(--gold-light);margin-bottom:8px}
+.qd-closing-sub{font-size:15px;color:var(--text-muted);line-height:1.85;font-style:italic}
+
+.qd-stars-row{display:flex;gap:8px;margin-top:20px;opacity:0.4}
+.qd-stars-row span{font-size:10px;color:var(--gold-light);animation:qdStarTwinkle 2s ease-in-out infinite}
+.qd-stars-row span:nth-child(2){animation-delay:.4s}
+.qd-stars-row span:nth-child(3){animation-delay:.8s}
+.qd-stars-row span:nth-child(4){animation-delay:1.2s}
+.qd-stars-row span:nth-child(5){animation-delay:1.6s}
+
+@keyframes qdOrbPulse{0%,100%{box-shadow:0 0 16px rgba(255,209,102,0.45),0 0 32px rgba(255,209,102,0.16)}50%{box-shadow:0 0 26px rgba(255,209,102,0.8),0 0 52px rgba(255,209,102,0.3)}}
+@keyframes qdOrbRing{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.1);opacity:1}}
+@keyframes qdStarTwinkle{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}
+
+@media(prefers-reduced-motion:reduce){
+  .qd-closing-orb,.qd-closing-orb::after,.qd-stars-row span{animation:none}
+}
+
+@media(max-width:600px){
+  .qd-page-wrap{padding:48px 16px 72px}
+  .qd-rule-card{padding:18px 18px;gap:14px}
+  .qd-rule-card:hover{transform:none}
+  .qd-rule-icon{display:none}
+  .qd-closing-note{padding:24px 18px;gap:14px}
+}
+</style>
+</head>
+<body>
+
+<canvas id="starsCanvas"></canvas>
+
+<!-- ════════ HEADER (giống hệt trang chủ / trang Quỹ Đạo Luân Chuyển) ════════ -->
+<header id="header">
+  <div class="header-inner">
+    <div class="header-logo-row">
+      <button class="hamburger" id="hamburger" aria-label="Mở menu">
+        <span></span><span></span><span></span>
+      </button>
+      <a class="logo" href="/">
+        <img class="logo-img" src="https://phongdocsokhong.wordpress.com/wp-content/uploads/2026/05/logo-ngang.png" alt="Phòng Đọc Số 0" width="240" height="72" fetchpriority="high" decoding="sync"/>
+      </a>
+      <div class="header-right">
+        <div class="search-bar">
+          <input type="text" placeholder="Tìm truyện..."/>
+          <button aria-label="Tìm kiếm">
+            <svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </button>
+        </div>
+        <button class="mobile-search-icon" id="mobileSearchIcon" aria-label="Tìm kiếm">
+          <svg fill="none" height="17" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="17"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="header-nav-row">
+      <nav>
+        <a href="/">Trang Chủ</a>
+        <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+        <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+        <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<!-- Overlay + Mobile Drawer -->
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-head">
+    <span class="mobile-menu-title">Menu</span>
+    <span class="swipe-hint-label">vuốt để đóng</span>
+  </div>
+  <div class="mobile-search-wrap">
+    <div class="search-bar">
+      <input id="mobileDrawerSearchInput" type="text" placeholder="Tìm truyện" readonly/>
+      <button id="mobileDrawerSearchBtn"><svg fill="none" height="15" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="15"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+    </div>
+  </div>
+  <nav>
+    <a href="/">Trang Chủ</a>
+    <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+    <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+    <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+  </nav>
+  <div class="mobile-menu-footer">
+    <div class="mobile-menu-footer-line"></div>
+    <span class="mobile-menu-footer-gem">✦</span>
+    <div class="mobile-menu-footer-line" style="background:linear-gradient(to left,var(--gold-border),transparent)"></div>
+  </div>
+</div>
+
+<!-- Search Overlay -->
+<div class="search-overlay" id="searchOverlay">
+  <button class="search-overlay-close" id="searchOverlayClose">×</button>
+  <div class="search-overlay-title">✦ Tìm Kiếm Truyện</div>
+  <div class="search-bar">
+    <input id="searchOverlayInput" type="text" placeholder="Nhập tên truyện, thể loại..." autocomplete="off" spellcheck="false"/>
+    <button id="searchOverlayBtn"><svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="18"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+  </div>
+  <div class="search-hint" id="searchHint">Gõ để tìm truyện trong thư viện...</div>
+  <div class="search-results" id="searchResults"></div>
+  <div class="search-not-found" id="searchNotFound">
+    <svg class="search-nf-cosmos" viewBox="0 0 220 160" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient cx="50%" cy="50%" id="nfBg" r="50%"><stop offset="0%" stop-color="#1a0f2e"/><stop offset="100%" stop-color="#0a0a0a"/></radialGradient></defs><ellipse cx="110" cy="80" fill="url(#nfBg)" opacity="0.6" rx="100" ry="70"/><g fill="#F8DB8F" opacity="0.5"><circle cx="30" cy="25" r="1"/><circle cx="80" cy="15" r="0.7"/><circle cx="140" cy="20" r="1.2"/><circle cx="190" cy="35" r="0.8"/><circle cx="55" cy="50" r="0.6"/><circle cx="170" cy="55" r="1"/><circle cx="20" cy="80" r="0.9"/><circle cx="200" cy="90" r="0.7"/></g><circle cx="110" cy="72" fill="none" r="32" stroke="rgba(248,219,143,0.25)" stroke-width="2"/><line stroke="rgba(248,219,143,0.3)" stroke-linecap="round" stroke-width="3" x1="133" x2="152" y1="95" y2="114"/><text fill="rgba(248,219,143,0.2)" font-family="Vollkorn,serif" font-size="28" font-weight="700" text-anchor="middle" x="110" y="82">?</text></svg>
+    <div class="search-nf-title">Không tìm thấy truyện nào</div>
+    <div class="search-nf-sub" id="searchNfQuery"></div>
+    <div class="search-nf-tip">Thử tìm với từ khóa khác hoặc kiểm tra thể loại trong thư viện.</div>
+  </div>
+</div>
+
+<!-- ════════ NỘI DUNG TRANG QUY ĐỊNH ════════ -->
+<main class="qd-page-wrap">
+
+  <div class="qd-eyebrow">✦ Phòng Đọc Số 0 ✦</div>
+  <h1 class="qd-heading">Quy Định<br>Của <em>Chúng Mình</em></h1>
+  <p class="qd-lead">Để giữ gìn không gian đọc truyện lành mạnh và tôn trọng công sức của editor, lữ khách vui lòng đọc và tuân thủ các quy định sau.</p>
+  <div class="shimmer-line" style="margin-bottom:56px"></div>
+
+  <div class="qd-rules-grid">
+
+    <div class="qd-rule-card">
+      <div class="qd-rule-num">1</div>
+      <div class="qd-rule-body">
+        <div class="qd-rule-title">Phi thương mại – Phi lợi nhuận</div>
+        <div class="qd-rule-desc">Toàn bộ bản dịch/edit trên trang chỉ phục vụ mục đích chia sẻ cá nhân, đọc giải trí. Không sử dụng dưới bất kỳ hình thức thương mại nào.</div>
+      </div>
+      <svg class="qd-rule-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+      </svg>
+    </div>
+
+    <div class="qd-rule-card">
+      <div class="qd-rule-num">2</div>
+      <div class="qd-rule-body">
+        <div class="qd-rule-title">Nghiêm cấm sao chép / Repost</div>
+        <div class="qd-rule-desc">Không tự ý sao chép, đăng tải lại toàn bộ hoặc một phần nội dung lên bất kỳ nền tảng nào.</div>
+      </div>
+      <svg class="qd-rule-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg>
+    </div>
+
+    <div class="qd-rule-card">
+      <div class="qd-rule-num">3</div>
+      <div class="qd-rule-body">
+        <div class="qd-rule-title">Không chuyển ver / Chuyển ngữ / Chỉnh sửa</div>
+        <div class="qd-rule-desc">Cấm chuyển ver, đổi tên nhân vật, chỉnh sửa nội dung, hoặc sử dụng bản edit làm nguyên liệu cho các bản phái sinh khi chưa có sự đồng ý.</div>
+      </div>
+      <svg class="qd-rule-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    </div>
+
+    <div class="qd-rule-card">
+      <div class="qd-rule-num">4</div>
+      <div class="qd-rule-body">
+        <div class="qd-rule-title">Không làm Audio / Podcast / Video</div>
+        <div class="qd-rule-desc">Không chuyển nội dung thành audio, podcast, video đọc truyện, recap, TikTok, YouTube hoặc bất kỳ hình thức truyền tải khác.</div>
+      </div>
+      <svg class="qd-rule-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+      </svg>
+    </div>
+
+    <div class="qd-rule-card">
+      <div class="qd-rule-num">5</div>
+      <div class="qd-rule-body">
+        <div class="qd-rule-title">Không reup lên nền tảng AI / App đọc truyện</div>
+        <div class="qd-rule-desc">Cấm đăng lại lên app đọc truyện, website tổng hợp, kho dữ liệu AI hoặc dùng để train mô hình.</div>
+      </div>
+      <svg class="qd-rule-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+
+    <div class="qd-rule-card">
+      <div class="qd-rule-num">6</div>
+      <div class="qd-rule-body">
+        <div class="qd-rule-title">Không mang đi nơi khác dưới mọi hình thức</div>
+        <div class="qd-rule-desc">Bao gồm đăng lại trên Facebook, TikTok, Wattpad, Wordpress, Blogspot khác, Telegram, Discord, diễn đàn...</div>
+      </div>
+      <svg class="qd-rule-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+      </svg>
+    </div>
+
+    <div class="qd-rule-card">
+      <div class="qd-rule-num">7</div>
+      <div class="qd-rule-body">
+        <div class="qd-rule-title">Không cắt ghép / Trích dẫn tùy ý</div>
+        <div class="qd-rule-desc">Không cắt đoạn, ghép ảnh, cap màn hình nội dung để phát tán khi chưa xin phép.</div>
+      </div>
+      <svg class="qd-rule-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4l-8 8m8 4l-8-8"/>
+      </svg>
+    </div>
+
+    <div class="qd-rule-card">
+      <div class="qd-rule-num">8</div>
+      <div class="qd-rule-body">
+        <div class="qd-rule-title">Tôn trọng công sức Editor / Translator</div>
+        <div class="qd-rule-desc">Vui lòng không xóa credit, watermark, ghi đè tên nhóm/trang.</div>
+      </div>
+      <svg class="qd-rule-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+    </div>
+
+    <div class="qd-rule-card">
+      <div class="qd-rule-num">9</div>
+      <div class="qd-rule-body">
+        <div class="qd-rule-title">Nếu phát hiện reup hoặc vi phạm</div>
+        <div class="qd-rule-desc">Bài viết có thể bị khóa, gỡ bỏ hoặc ngừng cập nhật mà không báo trước.</div>
+      </div>
+      <svg class="qd-rule-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+
+    <div class="qd-rule-card">
+      <div class="qd-rule-num">10</div>
+      <div class="qd-rule-body">
+        <div class="qd-rule-title">Bình luận văn minh</div>
+        <div class="qd-rule-desc">Không gây war, công kích cá nhân, spam hoặc để lại nội dung thiếu tôn trọng.</div>
+      </div>
+      <svg class="qd-rule-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+    </div>
+
+  </div>
+
+  <div class="qd-closing-note">
+    <div class="qd-closing-orb"></div>
+    <div class="qd-closing-text">
+      <div class="qd-closing-title">✦ Cảm ơn lữ khách đã đồng hành</div>
+      <div class="qd-closing-sub">Phòng Đọc Số 0 là không gian được xây dựng bằng tình yêu với những 'chiếc hố'. Mỗi sự tôn trọng của lữ khách chính là nguồn động lực để chúng mình tiếp tục hành trình này.</div>
+      <div class="qd-stars-row">
+        <span>✦</span><span>✦</span><span>✦</span><span>✦</span><span>✦</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ════════ FOOTER (giống hệt trang chủ / trang Quỹ Đạo Luân Chuyển) ════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">✦ Phòng Đọc Số 0 ✦</div>
+    <div class="footer-links">
+      <a href="/p/lien-he">Liên Hệ</a>
+      <a href="/p/quy-dinh">Quy Định</a>
+    </div>
+    <div class="footer-copy">© <span id="footerYearPds">2026</span> Phòng Đọc Số 0 · Thiếu Gay Hồn Bay Một Nửa
+      <span style="display:block;">Cảm ơn chủ sốp Noisy Team đã hướng dẫn tui cook web này</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Back to top (giữ nguyên) -->
+<button id="btt" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Về đầu trang">
+  <div class="btt-ring"></div>
+  <svg class="btt-icon" fill="none" height="16" viewBox="0 0 16 16" width="16"><line stroke="#F8DB8F" stroke-linecap="round" stroke-width="1.8" x1="8" x2="8" y1="12" y2="4"/><polyline fill="none" points="4.5,7 8,3.5 11.5,7" stroke="#F8DB8F" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/></svg>
+  <span class="btt-label">TOP</span>
+</button>
+
+<!-- Scripts — thứ tự giữ nguyên như trang Quỹ Đạo Luân Chuyển: config.js,
+     auth.js (tự bỏ qua gate cho path /p/), app.js lo header sticky, search
+     overlay, mobile menu, back-to-top. Mọi hàm init tự return sớm nếu
+     không thấy phần tử tương ứng nên không lỗi khi trang này không có
+     banner/coverflow/carousel/mars của trang chủ. -->
+<script src="/js/config.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/app.js"></script>
+
+<script>
+// ════════════════════════════════════
+// Stars Canvas — dùng lại y hệt hiệu ứng nền của trang Quỹ Đạo Luân Chuyển
+// ════════════════════════════════════
+(function(){
+  const c   = document.getElementById('starsCanvas');
+  const ctx = c.getContext('2d', { alpha: true, desynchronized: true });
+
+  let stars = [], raf, W, H;
+  const isMobile = window.innerWidth < 721;
+  const DENSITY = isMobile ? 0.12 : 0.3;
+
+  function resize(){ W = c.width = window.innerWidth; H = c.height = window.innerHeight; buildStars(); }
+  function buildStars(){
+    const n = Math.floor(W * DENSITY);
+    stars = new Array(n);
+    for(let i = 0; i < n; i++){
+      stars[i] = { x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.4+0.3, a: Math.random()*0.8+0.2, phase: Math.random()*6.28318, speed: Math.random()*0.012+0.005, gold: Math.random() > 0.45 };
+    }
+  }
+  let lastFrameTime = 0;
+  const TARGET_FPS = isMobile ? 30 : 60;
+  const FRAME_MS = 1000 / TARGET_FPS;
+  function draw(now){
+    raf = requestAnimationFrame(draw);
+    if(now - lastFrameTime < FRAME_MS) return;
+    lastFrameTime = now;
+    ctx.clearRect(0,0,W,H);
+    for(let i=0;i<stars.length;i++){ const s=stars[i]; if(!s.gold) continue; s.phase+=s.speed; ctx.globalAlpha = s.a*(0.5+0.5*Math.sin(s.phase)); ctx.fillStyle='rgba(248,219,143,1)'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.28318); ctx.fill(); }
+    for(let i=0;i<stars.length;i++){ const s=stars[i]; if(s.gold) continue; s.phase+=s.speed; ctx.globalAlpha = s.a*(0.5+0.5*Math.sin(s.phase)); ctx.fillStyle='rgba(200,168,75,1)'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.28318); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){ cancelAnimationFrame(raf); } else { lastFrameTime = 0; raf = requestAnimationFrame(draw); }
+  });
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 200); });
+  resize();
+  raf = requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
