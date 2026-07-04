@@ -426,11 +426,11 @@ svg.cosmos-bg { position: absolute; inset: 0; width: 100% !important; height: 10
 .cf-card {
   position: absolute; width: 210px; height: 315px;
   border-radius: 8px; overflow: hidden; border: 1px solid var(--gold-border);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
   transition: transform 0.55s cubic-bezier(0.4,0,0.2,1), opacity 0.55s ease, box-shadow 0.55s ease, border-color 0.55s ease;
   cursor: pointer; background: var(--black-3); will-change: transform;
 }
-.cf-card.pos-center { transform: translateX(0) scale(1) translateZ(0); opacity: 1; z-index: 5; border-color: var(--gold-light); box-shadow: 0 24px 20px rgba(0,0,0,0.85), 0 0 0 1px var(--gold-light), 0 0 30px rgba(248,219,143,0.15); width: 270px; height: 405px; }
+.cf-card.pos-center { transform: translateX(0) scale(1) translateZ(0); opacity: 1; z-index: 5; border-color: var(--gold-light); box-shadow: 0 6px 16px rgba(0,0,0,0.3), 0 0 0 1px var(--gold-light), 0 0 30px rgba(248,219,143,0.15); }
 .cf-card.pos-left1  { transform: translateX(-250px) rotateY(28deg) scale(0.82) translateZ(-60px); opacity: 0.7; z-index: 4; }
 .cf-card.pos-left2  { transform: translateX(-450px) rotateY(38deg) scale(0.65) translateZ(-120px); opacity: 0.38; z-index: 3; }
 .cf-card.pos-right1 { transform: translateX(250px) rotateY(-28deg) scale(0.82) translateZ(-60px); opacity: 0.7; z-index: 4; }
