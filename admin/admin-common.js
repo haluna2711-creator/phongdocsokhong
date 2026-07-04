@@ -48,6 +48,7 @@ function renderSidebar(active) {
     { href: '/admin/labels.html', label: 'Thể loại', key: 'labels' },
     { href: '/admin/chapters.html', label: 'Đăng chương', key: 'chapters' },
     { href: '/admin/comments.html', label: 'Bình luận', key: 'comments' },
+    { href: '/admin/settings.html', label: 'Cài đặt', key: 'settings' },
   ];
   const nav = items.map(i =>
     `<a href="${i.href}" class="${i.key === active ? 'active' : ''}">${i.label}</a>`
