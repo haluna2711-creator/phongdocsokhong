@@ -33,43 +33,40 @@ module.exports = async function handler(req, res) {
     const { data, error } = await query;
     if (error) return res.status(500).json({ ok: false, reason: error.message });
 
-    if (!isLight) {
-      // Đính kèm số chương cho mỗi truyện (dùng cho danh sách admin + trang truyện)
-      if (data && data.length) {
-        let cq = db.from('chapters').select('novel_id, status').in('novel_id', data.map((n) => n.id));
-        if (!admin) cq = cq.eq('status', 'published');
-        const { data: chRows } = await cq;
-        const counts = {};
-        (chRows || []).forEach((r) => { counts[r.novel_id] = (counts[r.novel_id] || 0) + 1; });
-        data.forEach((n) => { n.chapter_count = counts[n.id] || 0; });
-      }
+    if (!isLight && data && data.length) {
+      const novelIds = data.map((n) => n.id);
+      const now = new Date();
+      const startOfMonthIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      // Đính kèm số lượt xem (tổng + trong tháng hiện tại) cho mỗi truyện.
-      // Dùng cho: mục "Nổi Bật" (xem nhiều trong tháng) và mục "Thư Viện Truyện"
-      // (đọc nhiều nhất mỗi thể loại). Nguồn dữ liệu: bảng novel_views,
-      // mỗi dòng là 1 lượt xem được ghi qua POST /api/views.
-      if (data && data.length) {
-        const now = new Date();
-        const startOfMonthIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      // Đếm số chương + đếm lượt xem qua 2 hàm SQL (get_chapter_counts /
+      // get_view_counts, xem sql/stats_functions.sql) — Postgres đếm sẵn bằng
+      // GROUP BY và trả về ĐÚNG SỐ DÒNG BẰNG SỐ TRUYỆN, thay vì phải kéo về
+      // toàn bộ chapters/novel_views rồi đếm bằng JS ở server. Hai bảng này
+      // càng nhiều dữ liệu (nhiều view/chương) thì cách cũ càng chậm dần theo
+      // thời gian; cách này giữ tốc độ ổn định vì đã có index hỗ trợ.
+      // Hai truy vấn độc lập nhau → chạy song song bằng Promise.all thay vì
+      // await tuần tự, giảm gần một nửa thời gian chờ.
+      const [{ data: chRows, error: chErr }, { data: viewRows, error: vErr }] = await Promise.all([
+        db.rpc('get_chapter_counts', { ids: novelIds, only_published: !admin }),
+        db.rpc('get_view_counts', { ids: novelIds, month_start: startOfMonthIso }),
+      ]);
+      if (chErr) console.error('[api/novels] get_chapter_counts:', chErr.message);
+      if (vErr) console.error('[api/novels] get_view_counts:', vErr.message);
 
-        const { data: viewRows } = await db
-          .from('novel_views')
-          .select('novel_id, viewed_at')
-          .in('novel_id', data.map((n) => n.id));
+      const chapterCounts = {};
+      (chRows || []).forEach((r) => { chapterCounts[r.novel_id] = Number(r.cnt) || 0; });
+      data.forEach((n) => { n.chapter_count = chapterCounts[n.id] || 0; });
 
-        const totalCounts = {};
-        const monthCounts = {};
-        (viewRows || []).forEach((r) => {
-          totalCounts[r.novel_id] = (totalCounts[r.novel_id] || 0) + 1;
-          if (r.viewed_at >= startOfMonthIso) {
-            monthCounts[r.novel_id] = (monthCounts[r.novel_id] || 0) + 1;
-          }
-        });
-        data.forEach((n) => {
-          n.view_count_total = totalCounts[n.id] || 0;
-          n.view_count_month = monthCounts[n.id] || 0;
-        });
-      }
+      const totalCounts = {};
+      const monthCounts = {};
+      (viewRows || []).forEach((r) => {
+        totalCounts[r.novel_id] = Number(r.total) || 0;
+        monthCounts[r.novel_id] = Number(r.month) || 0;
+      });
+      data.forEach((n) => {
+        n.view_count_total = totalCounts[n.id] || 0;
+        n.view_count_month = monthCounts[n.id] || 0;
+      });
     }
 
     // Nội dung công khai, ít đổi → cho phép CDN/Edge của Vercel cache ngắn hạn.
