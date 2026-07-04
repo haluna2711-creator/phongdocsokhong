@@ -2,6 +2,13 @@
 // PHÒNG ĐỌC SỐ 0 — Auth Gate API (Supabase)
 // Dùng bởi js/auth.js: GET /api/auth-register?action=register&email=...
 //                       GET /api/auth-register?action=verify&email=...&code=...
+//                       GET /api/auth-register?action=gate-status   (public)
+// Dùng bởi admin/settings.html:
+//                       GET /api/auth-register?action=gate-set&open=true|false  (chỉ admin)
+//
+// LƯU Ý: các action gate-status/gate-set được gộp CHUNG vào file này (thay vì
+// tạo file api/registration-gate.js riêng) để không vượt quá giới hạn 12
+// Serverless Functions/deployment của Vercel Hobby plan.
 //
 // Bảng Supabase "readers" (đúng theo schema hiện tại của bạn):
 //   - id             uuid, primary key, default gen_random_uuid()
@@ -22,6 +29,7 @@
 // ════════════════════════════════════
 
 const { getSupabaseAdmin } = require('./_lib/supabaseAdmin');
+const { requireAdmin } = require('./_lib/auth');
 
 // Bỏ các ký tự dễ nhầm lẫn khi đọc mã qua email (0/O, 1/I).
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -63,13 +71,47 @@ async function sendCodeEmail(email, code) {
 module.exports = async function handler(req, res) {
   try {
     const action = String(req.query.action || '').trim();
+    const db = getSupabaseAdmin();
+
+    // ── Trạng thái cổng đăng ký: public, không cần email/đăng nhập ──
+    // Gọi bởi js/auth.js để biết cổng đang mở hay đang bị admin khoá.
+    if (action === 'gate-status') {
+      const { data, error } = await db
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'registration_open')
+        .maybeSingle();
+      if (error) return res.status(200).json({ ok: true, open: true });
+      const open = data ? data.value !== false : true;
+      return res.status(200).json({ ok: true, open });
+    }
+
+    // ── Khoá / mở cổng đăng ký: CHỈ admin ──
+    // Gọi bởi admin/settings.html. Dùng GET với query ?open=true|false để
+    // dùng chung được với 1 file API duy nhất (tránh tạo thêm Serverless
+    // Function mới — Vercel Hobby giới hạn tối đa 12 function/deployment).
+    if (action === 'gate-set') {
+      if (!requireAdmin(req, res)) return;
+      const openRaw = String(req.query.open || '').trim();
+      if (openRaw !== 'true' && openRaw !== 'false') {
+        return res.status(400).json({ ok: false, reason: 'missing_open' });
+      }
+      const open = openRaw === 'true';
+      const { error } = await db
+        .from('app_settings')
+        .upsert(
+          { key: 'registration_open', value: open, updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+      if (error) return res.status(500).json({ ok: false, reason: error.message });
+      return res.status(200).json({ ok: true, open });
+    }
+
     const email = String(req.query.email || '').trim().toLowerCase();
 
     if (!email || email.indexOf('@') < 1) {
       return res.status(200).json({ ok: false, reason: 'invalid_email' });
     }
-
-    const db = getSupabaseAdmin();
 
     // ── Đăng ký: tạo mã mới, gửi email ──
     if (action === 'register') {
