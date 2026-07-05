@@ -847,6 +847,15 @@ function updateSaveBtnUI(state){
   else label.textContent = 'Mượn Sách';
 }
 
+// Thể loại thật của truyện = label KHÔNG PHẢI "Đam Mỹ" (slug cố định
+// 'dam-my' — label này chỉ đánh dấu loại hình chung của cả site, mỗi
+// truyện luôn có label này + đúng 1 label thể loại riêng khác).
+function getNovelGenre(novel){
+  const rels = novel.novel_labels || [];
+  const genreRel = rels.find(r => r.labels && r.labels.slug !== 'dam-my');
+  return genreRel ? genreRel.labels.name : '';
+}
+
 function doToggleSave(email){
   if(!NOVEL) return;
   const firstCh = chapters[0];
@@ -854,12 +863,11 @@ function doToggleSave(email){
     slug: NOVEL.slug,
     title: NOVEL.title,
     cover: NOVEL.cover_url || '',
-    genre: (NOVEL.tags && NOVEL.tags[0]) || '',
+    genre: getNovelGenre(NOVEL),
     status: NOVEL.status || '',
     chapterCount: NOVEL.chapter_count ?? chapters.length,
     readUrl: firstCh ? chapterUrl(firstCh) : `/post/${NOVEL.slug}`,
   });
-  // Sau khi bấm, nếu không còn mượn nữa tức là vừa trả → hiện "Mượn Lại".
   updateSaveBtnUI(nowBorrowed ? 'borrowed' : 'returned');
 }
 
