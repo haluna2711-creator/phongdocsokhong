@@ -533,7 +533,7 @@ function buildBookCard(slug, novel){
       <div class="btd-title-txt">${novel.title}</div>
       <div class="btd-saved-date">Mượn ngày ${fmtDate(novel.savedAt)}</div>
       <div class="btd-btn-row">
-        <a class="btd-btn-read" href="${novel.readUrl || '#'}">Đọc Tiếp</a>
+        <a class="btd-btn-read" href="${novel.lastReadUrl || novel.readUrl || '#'}">Đọc Tiếp</a>
         <button class="btd-btn-return" data-slug="${slug}">Trả Sách</button>
       </div>
     </div>`;
