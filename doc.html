@@ -600,7 +600,33 @@ function setupClipboardHijack() {
   ps.textContent = '@media print{#story-content{visibility:hidden}#story-content::before{visibility:visible;content:"Nội dung được bảo hộ bản quyền.";display:block}}';
   document.head.appendChild(ps);
 }
+     
+/* ═══ Thẻ Bạn Đọc — chỉ cần đọc/ghi "chương đang đọc" cho truyện đã có
+   trong kệ sách, dùng chung khoá lưu trữ với post.html / the-ban-doc.html.
+   KHÔNG tự thêm truyện mới vào kệ ở đây (chỉ post.html mới có nút Mượn) —
+   nếu truyện chưa từng được mượn thì bỏ qua, không tạo bản ghi mới. ═══ */
+function pdsNormEmail(e){ return (e || '').trim().toLowerCase(); }
+function pdsCardKey(email){ return 'pds_card_' + pdsNormEmail(email); }
+function pdsGetActiveEmail(){ return pdsNormEmail(localStorage.getItem(PDS_CONFIG.SAVED_EMAIL_KEY) || ''); }
+function pdsGetCard(email){
+  try{
+    const raw = localStorage.getItem(pdsCardKey(email));
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return null;
+}
+function pdsSaveCard(card){ localStorage.setItem(pdsCardKey(card.email), JSON.stringify(card)); }
 
+function pdsUpdateLastRead(novelSlug, readUrl){
+  const email = pdsGetActiveEmail();
+  if(!email) return;
+  const card = pdsGetCard(email);
+  if(!card || !card.novels[novelSlug]) return; // chưa từng mượn truyện này thì bỏ qua
+  card.novels[novelSlug].lastReadUrl = readUrl;
+  card.novels[novelSlug].lastReadAt = Date.now();
+  pdsSaveCard(card);
+}
+     
 /* ─── ĐƯỜNG DẪN: /doc/:novelSlug/:chapterSlug ─── */
 const PATH_PARTS  = location.pathname.split('/').filter(Boolean);
 const DOC_IDX      = PATH_PARTS.indexOf('doc');
@@ -841,6 +867,14 @@ async function loadChapter() {
     renderStory(chapter.content);
     setCachedChapter(NOVEL.id, CHAPTER_SLUG, chapter);
 
+       // Render nội dung ngay — không chờ mục lục (chỉ cần cho nút prev/next + panel mục lục).
+    renderStory(chapter.content);
+    setCachedChapter(NOVEL.id, CHAPTER_SLUG, chapter);
+
+    // Ghi lại đây là chương đang đọc dở, để nút "Đọc Tiếp" ở Thẻ Bạn Đọc
+    // dẫn thẳng vào chương này thay vì luôn về chương 1.
+    pdsUpdateLastRead(NOVEL.slug, location.pathname);
+       
     window.PDS_REACT_CTX = { novel_id: NOVEL.id, novel_slug: NOVEL.slug, chapter_id: chapter.id };
     window.initReactionsComments?.();
 
