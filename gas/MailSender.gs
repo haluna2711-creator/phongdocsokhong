@@ -51,7 +51,8 @@ function handleSendCode_(e) {
 
   MailApp.sendEmail({
     to: email,
-    subject: 'Mã truy cập — Phòng Đọc Số 0',
+    subject: '[Phòng Đọc Số 0] Mã truy cập của bạn',
+    name: 'Phòng Đọc Số 0',
     // Bản text thuần — dùng khi hộp thư chặn/không hiển thị được HTML.
     body:
       'Xin chào Lữ Khách,\n\n' +
