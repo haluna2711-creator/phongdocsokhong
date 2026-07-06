@@ -19,6 +19,10 @@ let scheduleDays = [2,3,4,5]; // mặc định Thứ 3–Thứ 6, giống ví d�
 let publishMode = 'scheduled'; // draft | scheduled | publish_now
 let currentVolume = ''; // Quyển áp dụng cho đợt đăng chương này (vd "Quyển 1: Săn Ma")
 
+// ── State cho khu vực xoá chương ──
+let selectedChapterIds = new Set();
+let volumeFilterDelete = '';
+
 const DAY_LABELS = ['CN','T2','T3','T4','T5','T6','T7'];
 
 async function load() {
@@ -93,6 +97,8 @@ function render() {
   document.getElementById('novelSelect').addEventListener('change', async (e) => {
     selectedNovelId = e.target.value;
     DETECTED = [];
+    selectedChapterIds.clear();
+    volumeFilterDelete = '';
     await loadExisting();
     render();
   });
@@ -195,17 +201,51 @@ function renderScheduleCard() {
 }
 
 function renderExistingCard() {
+  const volumes = [...new Set(EXISTING.map(c => c.volume).filter(Boolean))];
+  const filtered = volumeFilterDelete
+    ? EXISTING.filter(c => c.volume === volumeFilterDelete)
+    : EXISTING;
+  const allChecked = filtered.length > 0 && filtered.every(c => selectedChapterIds.has(c.id));
+
   return `
     <div class="card">
       <h2>Chương hiện có (${EXISTING.length})</h2>
+
       ${EXISTING.length ? `
+        <div class="checkbox-row" style="margin-bottom:14px;align-items:center;gap:10px;flex-wrap:wrap">
+          ${volumes.length ? `
+            <select id="volumeFilterSelect" style="max-width:260px">
+              <option value="">-- Tất cả quyển --</option>
+              ${volumes.map(v => `<option value="${escHtml(v)}" ${v===volumeFilterDelete?'selected':''}>${escHtml(v)}</option>`).join('')}
+            </select>
+            <button class="btn btn-sm btn-danger" id="delByVolumeBtn" ${!volumeFilterDelete?'disabled':''}>
+              Xoá cả quyển đang chọn
+            </button>
+          ` : ''}
+
+          <button class="btn btn-sm btn-danger" id="delAllBtn">Xoá toàn bộ chương (${EXISTING.length})</button>
+
+          ${selectedChapterIds.size ? `
+            <button class="btn btn-sm btn-danger" id="delSelectedBtn">
+              Xoá ${selectedChapterIds.size} chương đã chọn
+            </button>
+          ` : ''}
+        </div>
+
         <table>
-          <thead><tr><th>#</th><th>Tên chương</th><th>Trạng thái</th><th>Thời gian</th><th></th></tr></thead>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="selectAllChk" ${allChecked?'checked':''}/></th>
+              <th>#</th><th>Tên chương</th><th>Quyển</th><th>Trạng thái</th><th>Thời gian</th><th></th>
+            </tr>
+          </thead>
           <tbody>
-            ${EXISTING.map(c => `
+            ${filtered.map(c => `
               <tr>
+                <td><input type="checkbox" class="chk-row" data-id="${c.id}" ${selectedChapterIds.has(c.id)?'checked':''}/></td>
                 <td class="mono">${c.chapter_number}</td>
                 <td>${escHtml(c.title)}</td>
+                <td style="color:var(--muted);font-size:12.5px">${c.volume ? escHtml(c.volume) : '—'}</td>
                 <td>${statusBadge(c.status)}</td>
                 <td class="mono" style="color:var(--muted);font-size:12.5px">
                   ${c.status === 'published' ? fmtDate(c.published_at) : c.status === 'scheduled' ? fmtDate(c.scheduled_at) : '—'}
@@ -265,6 +305,39 @@ function bindInteractivity() {
   document.querySelectorAll('[data-publish]').forEach(b => b.addEventListener('click', () => setChapterStatus(b.dataset.publish, 'published')));
   document.querySelectorAll('[data-unpublish]').forEach(b => b.addEventListener('click', () => setChapterStatus(b.dataset.unpublish, 'draft')));
   document.querySelectorAll('[data-delch]').forEach(b => b.addEventListener('click', () => delChapter(b.dataset.delch)));
+
+  // ── Xoá theo quyển / toàn bộ / theo lựa chọn ──
+  const volSel = document.getElementById('volumeFilterSelect');
+  if (volSel) volSel.addEventListener('change', e => {
+    volumeFilterDelete = e.target.value;
+    render();
+  });
+
+  const delByVolumeBtn = document.getElementById('delByVolumeBtn');
+  if (delByVolumeBtn) delByVolumeBtn.addEventListener('click', deleteByVolume);
+
+  const delAllBtn = document.getElementById('delAllBtn');
+  if (delAllBtn) delAllBtn.addEventListener('click', deleteAllChapters);
+
+  const delSelectedBtn = document.getElementById('delSelectedBtn');
+  if (delSelectedBtn) delSelectedBtn.addEventListener('click', deleteSelectedChapters);
+
+  const selectAllChk = document.getElementById('selectAllChk');
+  if (selectAllChk) selectAllChk.addEventListener('change', e => {
+    const filtered = volumeFilterDelete ? EXISTING.filter(c => c.volume === volumeFilterDelete) : EXISTING;
+    if (e.target.checked) filtered.forEach(c => selectedChapterIds.add(c.id));
+    else filtered.forEach(c => selectedChapterIds.delete(c.id));
+    render();
+  });
+
+  document.querySelectorAll('.chk-row').forEach(chk => {
+    chk.addEventListener('change', e => {
+      const id = e.target.dataset.id;
+      if (e.target.checked) selectedChapterIds.add(id);
+      else selectedChapterIds.delete(id);
+      render();
+    });
+  });
 }
 
 async function handleFiles(fileList) {
@@ -338,6 +411,45 @@ async function delChapter(id) {
     toast('Đã xoá chương', 'ok');
     await loadExisting(); render();
   } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+}
+
+/* ─── Xoá hàng loạt: gọi 1 API bulk-delete duy nhất (nhanh & an toàn hơn
+   trên Vercel/Supabase so với việc bắn N request DELETE song song) ─── */
+async function bulkDelete(payload) {
+  try {
+    const { deleted } = await api('/api/chapters-bulk-delete', {
+      method: 'POST',
+      body: { novel_id: selectedNovelId, ...payload },
+    });
+    toast(`Đã xoá ${deleted} chương`, 'ok');
+  } catch (e) {
+    toast('Lỗi: ' + e.message, 'err');
+  } finally {
+    selectedChapterIds.clear();
+    await loadExisting();
+    render();
+  }
+}
+
+async function deleteAllChapters() {
+  if (!EXISTING.length) return;
+  if (!confirm(`Xoá TOÀN BỘ ${EXISTING.length} chương của truyện này? Không thể hoàn tác.`)) return;
+  await bulkDelete({ mode: 'all' });
+}
+
+async function deleteByVolume() {
+  if (!volumeFilterDelete) return;
+  const count = EXISTING.filter(c => c.volume === volumeFilterDelete).length;
+  if (!count) return;
+  if (!confirm(`Xoá toàn bộ ${count} chương thuộc "${volumeFilterDelete}"? Không thể hoàn tác.`)) return;
+  await bulkDelete({ mode: 'volume', volume: volumeFilterDelete });
+}
+
+async function deleteSelectedChapters() {
+  const ids = [...selectedChapterIds];
+  if (!ids.length) return;
+  if (!confirm(`Xoá ${ids.length} chương đã chọn? Không thể hoàn tác.`)) return;
+  await bulkDelete({ mode: 'ids', ids });
 }
 
 bootAdmin('chapters', load);
