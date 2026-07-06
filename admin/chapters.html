@@ -417,8 +417,8 @@ async function delChapter(id) {
    trên Vercel/Supabase so với việc bắn N request DELETE song song) ─── */
 async function bulkDelete(payload) {
   try {
-    const { deleted } = await api('/api/chapters-bulk-delete', {
-      method: 'POST',
+    const { deleted } = await api('/api/chapters', {
+      method: 'DELETE',
       body: { novel_id: selectedNovelId, ...payload },
     });
     toast(`Đã xoá ${deleted} chương`, 'ok');
