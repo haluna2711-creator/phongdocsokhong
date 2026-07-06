@@ -108,7 +108,47 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'DELETE') {
     const { id } = req.query;
-    if (!id) return res.status(400).json({ ok: false, reason: 'missing_id' });
+
+    // Không có ?id=... trên query nhưng có body {novel_id, mode} → xoá hàng
+    // loạt (dùng bởi admin/chapters.html, nút "Xoá nhiều/Xoá tất cả"). Gộp
+    // chung vào đây (thay vì file api/chapters-bulk-delete.js riêng) để
+    // không vượt quá giới hạn 12 Serverless Functions/deployment của Vercel
+    // Hobby plan — admin đã được xác thực ở requireAdmin() phía trên rồi.
+    if (!id) {
+      const b = req.body || {};
+      const { novel_id, mode, ids, volume } = b;
+      if (!novel_id || typeof novel_id !== 'string') {
+        return res.status(400).json({ ok: false, reason: 'missing_novel_id' });
+      }
+
+      let query = db.from('chapters').delete().eq('novel_id', novel_id);
+
+      if (mode === 'all') {
+        // Không thêm điều kiện gì khác ngoài novel_id — xoá toàn bộ chương của truyện này.
+      } else if (mode === 'volume') {
+        if (!volume || typeof volume !== 'string') {
+          return res.status(400).json({ ok: false, reason: 'missing_volume' });
+        }
+        query = query.eq('volume', volume);
+      } else if (mode === 'ids') {
+        if (!Array.isArray(ids) || ids.length === 0) {
+          return res.status(400).json({ ok: false, reason: 'missing_ids' });
+        }
+        if (ids.length > 1000) {
+          return res.status(400).json({ ok: false, reason: 'too_many_ids' });
+        }
+        query = query.in('id', ids);
+      } else {
+        return res.status(400).json({ ok: false, reason: 'invalid_mode' });
+      }
+
+      const { data, error } = await query.select('id');
+      if (error) return res.status(500).json({ ok: false, reason: error.message });
+
+      await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', novel_id);
+
+      return res.status(200).json({ ok: true, deleted: data.length, ids: data.map((d) => d.id) });
+    }
 
     // Lấy novel_id trước khi xoá để có thể chạm updated_at của truyện cha.
     const { data: existing } = await db.from('chapters').select('novel_id').eq('id', id).maybeSingle();
