@@ -448,7 +448,11 @@ async function openEditChapter(id) {
   editingChapter = { id, loading: true };
   render();
   try {
-    const { chapter } = await api(`/api/chapters?id=${id}`);
+    // Lưu ý: API GET luôn trả về field số nhiều `chapters` (mảng),
+    // kể cả khi lọc theo ?id= chỉ có đúng 1 phần tử — không có field `chapter` số ít.
+    const { chapters } = await api(`/api/chapters?id=${id}`);
+    const chapter = chapters && chapters[0];
+    if (!chapter) throw new Error('Không tìm thấy chương');
     editingChapter = {
       id,
       title: chapter.title,
