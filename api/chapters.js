@@ -1,5 +1,7 @@
+const { getCockroachPool } = require('./_lib/cockroachAdmin');
 const { getSupabaseAdmin } = require('./_lib/supabaseAdmin');
 const { isAdmin, requireAdmin } = require('./_lib/auth');
+const { syncChapterCounts } = require('./_lib/chapterCounts');
 
 function slugify(str) {
   return String(str)
@@ -11,39 +13,58 @@ function slugify(str) {
 }
 
 module.exports = async function handler(req, res) {
-  const db = getSupabaseAdmin();
+  const pool = getCockroachPool();
 
   if (req.method === 'GET') {
     const admin = isAdmin(req);
     const { novel_id, novel_slug, id, slug } = req.query;
+
+    // novel_slug: chapters giờ nằm ở CockroachDB, không JOIN được với bảng
+    // novels bên Supabase như trước (novels!inner(slug)) — phải đổi slug
+    // -> novel_id bằng 1 query riêng trên Supabase trước.
+    let resolvedNovelId = novel_id || null;
+    if (novel_slug && !resolvedNovelId) {
+      const db = getSupabaseAdmin();
+      const { data: novel, error: novelErr } = await db
+        .from('novels').select('id').eq('slug', novel_slug).maybeSingle();
+      if (novelErr) return res.status(500).json({ ok: false, reason: novelErr.message });
+      if (!novel) {
+        if (!admin) res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
+        return res.status(200).json({ ok: true, chapters: [] });
+      }
+      resolvedNovelId = novel.id;
+    }
+
     // Khi lấy 1 chương cụ thể (id hoặc slug) trả về đầy đủ (kèm content).
-    // Khi lấy danh sách (mục lục) chỉ trả trường nhẹ để tránh tải content của cả trăm chương.
+    // Khi lấy danh sách (mục lục) chỉ trả trường nhẹ.
     const single = !!(id || slug);
     const fields = single
       ? '*'
       : 'id, novel_id, title, slug, volume, chapter_number, status, published_at, scheduled_at';
 
-    // novel_slug: lọc kèm theo slug truyện ngay trong 1 câu query (join `!inner`),
-    // KHÔNG cần round-trip riêng để đổi slug -> novel_id trước. Trước đây tham số
-    // này bị bỏ qua hoàn toàn nên `slug` (mã chương) có thể trùng giữa 2 truyện
-    // khác nhau và trả nhầm chương — filter theo novel_slug khắc phục luôn lỗi đó.
-    const selectFields = novel_slug ? `${fields}, novels!inner(slug)` : fields;
-    let query = db.from('chapters').select(selectFields);
-    if (id) query = query.eq('id', id);
-    if (slug) query = query.eq('slug', slug);
-    if (novel_id) query = query.eq('novel_id', novel_id);
-    if (novel_slug) query = query.eq('novels.slug', novel_slug);
-    if (!admin) query = query.eq('status', 'published');
-    query = query.order('chapter_number', { ascending: true });
+    const conditions = [];
+    const params = [];
+    if (id) { params.push(id); conditions.push(`id = $${params.length}`); }
+    if (slug) { params.push(slug); conditions.push(`slug = $${params.length}`); }
+    if (resolvedNovelId) { params.push(resolvedNovelId); conditions.push(`novel_id = $${params.length}`); }
+    if (!admin) conditions.push(`status = 'published'`);
 
-    const { data, error } = await query;
-    if (error) return res.status(500).json({ ok: false, reason: error.message });
-    // Bỏ field novels lồng vào (chỉ dùng để lọc) trước khi trả về cho client.
-    const cleaned = novel_slug ? (data || []).map(({ novels, ...rest }) => rest) : data;
-    // Nội dung chương đã published ít đổi → cho phép cache ngắn hạn ở CDN/Edge,
-    // giúp các lượt đọc sau (đặc biệt chương hot) trả về gần như tức thì.
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    let rows;
+    try {
+      const result = await pool.query(
+        `SELECT ${fields} FROM chapters ${where} ORDER BY chapter_number ASC`,
+        params
+      );
+      rows = result.rows;
+    } catch (err) {
+      return res.status(500).json({ ok: false, reason: err.message });
+    }
+
+    // Nội dung chương đã published ít đổi → cho phép cache ngắn hạn ở CDN/Edge.
     if (!admin) res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600');
-    return res.status(200).json({ ok: true, chapters: cleaned });
+    return res.status(200).json({ ok: true, chapters: rows });
   }
 
   if (!requireAdmin(req, res)) return;
@@ -52,39 +73,46 @@ module.exports = async function handler(req, res) {
     const b = req.body || {};
     if (!b.novel_id || !b.title) return res.status(400).json({ ok: false, reason: 'missing_fields' });
 
-    let chapterNumber = b.chapter_number;
-    if (chapterNumber === undefined || chapterNumber === null) {
-      const { data: maxRow } = await db
-        .from('chapters').select('chapter_number')
-        .eq('novel_id', b.novel_id)
-        .order('chapter_number', { ascending: false }).limit(1).maybeSingle();
-      chapterNumber = maxRow ? Number(maxRow.chapter_number) + 1 : 1;
+    try {
+      let chapterNumber = b.chapter_number;
+      if (chapterNumber === undefined || chapterNumber === null) {
+        const { rows: maxRows } = await pool.query(
+          `SELECT chapter_number FROM chapters WHERE novel_id = $1 ORDER BY chapter_number DESC LIMIT 1`,
+          [b.novel_id]
+        );
+        chapterNumber = maxRows[0] ? Number(maxRows[0].chapter_number) + 1 : 1;
+      }
+
+      const slug = b.slug ? slugify(b.slug) : slugify(b.title);
+      const status = b.status || 'draft';
+      const publishedAt = status === 'published' ? new Date().toISOString() : null;
+
+      const { rows } = await pool.query(
+        `INSERT INTO chapters
+           (novel_id, title, slug, volume, content, chapter_number, status, scheduled_at, published_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         RETURNING *`,
+        [b.novel_id, b.title, slug, b.volume || null, b.content || '', chapterNumber, status,
+          b.scheduled_at || null, publishedAt]
+      );
+      const chapter = rows[0];
+
+      // Đánh dấu truyện vừa có chương mới + đồng bộ số đếm chương.
+      const db = getSupabaseAdmin();
+      await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', chapter.novel_id);
+      await syncChapterCounts(chapter.novel_id);
+
+      return res.status(200).json({ ok: true, chapter });
+    } catch (err) {
+      return res.status(500).json({ ok: false, reason: err.message });
     }
-
-    const { data, error } = await db.from('chapters').insert({
-      novel_id: b.novel_id,
-      title: b.title,
-      slug: b.slug ? slugify(b.slug) : slugify(b.title),
-      volume: b.volume || null,
-      content: b.content || '',
-      chapter_number: chapterNumber,
-      status: b.status || 'draft',
-      scheduled_at: b.scheduled_at || null,
-      published_at: b.status === 'published' ? new Date().toISOString() : null,
-    }).select().single();
-
-    if (error) return res.status(500).json({ ok: false, reason: error.message });
-
-    // Đánh dấu truyện vừa có chương mới → mục "Truyện Mới Cập Nhật" nhận được.
-    await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', data.novel_id);
-
-    return res.status(200).json({ ok: true, chapter: data });
   }
 
   if (req.method === 'PUT') {
     const { id } = req.query;
     if (!id) return res.status(400).json({ ok: false, reason: 'missing_id' });
     const b = req.body || {};
+
     const patch = {};
     ['title', 'volume', 'content', 'chapter_number', 'status', 'scheduled_at']
       .forEach((k) => { if (b[k] !== undefined) patch[k] = b[k]; });
@@ -97,23 +125,37 @@ module.exports = async function handler(req, res) {
       patch.scheduled_at = null;
     }
 
-    const { data, error } = await db.from('chapters').update(patch).eq('id', id).select().single();
-    if (error) return res.status(500).json({ ok: false, reason: error.message });
+    const keys = Object.keys(patch);
+    if (keys.length === 0) return res.status(400).json({ ok: false, reason: 'empty_patch' });
 
-    // Sửa nội dung / đăng tải chương cũng tính là "cập nhật truyện".
-    await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', data.novel_id);
+    try {
+      const setClauses = keys.map((k, i) => `${k} = $${i + 1}`);
+      const values = keys.map((k) => patch[k]);
+      values.push(id);
 
-    return res.status(200).json({ ok: true, chapter: data });
+      const { rows } = await pool.query(
+        `UPDATE chapters SET ${setClauses.join(', ')}, updated_at = now()
+         WHERE id = $${values.length} RETURNING *`,
+        values
+      );
+      const chapter = rows[0];
+      if (!chapter) return res.status(404).json({ ok: false, reason: 'not_found' });
+
+      // Sửa nội dung / đăng tải chương cũng tính là "cập nhật truyện" + đồng bộ số đếm.
+      const db = getSupabaseAdmin();
+      await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', chapter.novel_id);
+      await syncChapterCounts(chapter.novel_id);
+
+      return res.status(200).json({ ok: true, chapter });
+    } catch (err) {
+      return res.status(500).json({ ok: false, reason: err.message });
+    }
   }
 
   if (req.method === 'DELETE') {
     const { id } = req.query;
+    const db = getSupabaseAdmin();
 
-    // Không có ?id=... trên query nhưng có body {novel_id, mode} → xoá hàng
-    // loạt (dùng bởi admin/chapters.html, nút "Xoá nhiều/Xoá tất cả"). Gộp
-    // chung vào đây (thay vì file api/chapters-bulk-delete.js riêng) để
-    // không vượt quá giới hạn 12 Serverless Functions/deployment của Vercel
-    // Hobby plan — admin đã được xác thực ở requireAdmin() phía trên rồi.
     if (!id) {
       const b = req.body || {};
       const { novel_id, mode, ids, volume } = b;
@@ -121,15 +163,17 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ ok: false, reason: 'missing_novel_id' });
       }
 
-      let query = db.from('chapters').delete().eq('novel_id', novel_id);
+      let where = 'novel_id = $1';
+      const params = [novel_id];
 
       if (mode === 'all') {
-        // Không thêm điều kiện gì khác ngoài novel_id — xoá toàn bộ chương của truyện này.
+        // Không thêm điều kiện gì khác — xoá toàn bộ chương của truyện này.
       } else if (mode === 'volume') {
         if (!volume || typeof volume !== 'string') {
           return res.status(400).json({ ok: false, reason: 'missing_volume' });
         }
-        query = query.eq('volume', volume);
+        params.push(volume);
+        where += ` AND volume = $${params.length}`;
       } else if (mode === 'ids') {
         if (!Array.isArray(ids) || ids.length === 0) {
           return res.status(400).json({ ok: false, reason: 'missing_ids' });
@@ -137,29 +181,39 @@ module.exports = async function handler(req, res) {
         if (ids.length > 1000) {
           return res.status(400).json({ ok: false, reason: 'too_many_ids' });
         }
-        query = query.in('id', ids);
+        params.push(ids);
+        where += ` AND id = ANY($${params.length}::uuid[])`;
       } else {
         return res.status(400).json({ ok: false, reason: 'invalid_mode' });
       }
 
-      const { data, error } = await query.select('id');
-      if (error) return res.status(500).json({ ok: false, reason: error.message });
+      try {
+        const { rows } = await pool.query(`DELETE FROM chapters WHERE ${where} RETURNING id`, params);
 
-      await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', novel_id);
+        await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', novel_id);
+        await syncChapterCounts(novel_id);
 
-      return res.status(200).json({ ok: true, deleted: data.length, ids: data.map((d) => d.id) });
+        return res.status(200).json({ ok: true, deleted: rows.length, ids: rows.map((r) => r.id) });
+      } catch (err) {
+        return res.status(500).json({ ok: false, reason: err.message });
+      }
     }
 
-    // Lấy novel_id trước khi xoá để có thể chạm updated_at của truyện cha.
-    const { data: existing } = await db.from('chapters').select('novel_id').eq('id', id).maybeSingle();
+    try {
+      const { rows: existingRows } = await pool.query('SELECT novel_id FROM chapters WHERE id = $1', [id]);
+      const existing = existingRows[0];
 
-    const { error } = await db.from('chapters').delete().eq('id', id);
-    if (error) return res.status(500).json({ ok: false, reason: error.message });
+      const { rowCount } = await pool.query('DELETE FROM chapters WHERE id = $1', [id]);
+      if (rowCount === 0) return res.status(404).json({ ok: false, reason: 'not_found' });
 
-    if (existing?.novel_id) {
-      await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', existing.novel_id);
+      if (existing?.novel_id) {
+        await db.from('novels').update({ updated_at: new Date().toISOString() }).eq('id', existing.novel_id);
+        await syncChapterCounts(existing.novel_id);
+      }
+      return res.status(200).json({ ok: true });
+    } catch (err) {
+      return res.status(500).json({ ok: false, reason: err.message });
     }
-    return res.status(200).json({ ok: true });
   }
 
   return res.status(405).json({ ok: false, reason: 'method_not_allowed' });
