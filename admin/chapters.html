@@ -23,6 +23,9 @@ let currentVolume = ''; // Quyển áp dụng cho đợt đăng chương này (v
 let selectedChapterIds = new Set();
 let volumeFilterDelete = '';
 
+// ── State cho khu vực sửa chương ──
+let editingChapter = null; // {id, title, content, volume, chapter_number, loading}
+
 const DAY_LABELS = ['CN','T2','T3','T4','T5','T6','T7'];
 
 async function load() {
@@ -91,7 +94,7 @@ function render() {
       </div>
     </div>
 
-    ${novel ? renderUploadCard() + renderDetectedCard() + renderScheduleCard() + renderExistingCard() : `<div class="card"><div class="empty">Chưa có truyện nào — tạo truyện trước ở trang "Truyện".</div></div>`}
+    ${novel ? renderUploadCard() + renderDetectedCard() + renderScheduleCard() + renderEditCard() + renderExistingCard() : `<div class="card"><div class="empty">Chưa có truyện nào — tạo truyện trước ở trang "Truyện".</div></div>`}
   `);
 
   document.getElementById('novelSelect').addEventListener('change', async (e) => {
@@ -99,6 +102,7 @@ function render() {
     DETECTED = [];
     selectedChapterIds.clear();
     volumeFilterDelete = '';
+    editingChapter = null;
     await loadExisting();
     render();
   });
@@ -200,6 +204,34 @@ function renderScheduleCard() {
     </div>`;
 }
 
+function renderEditCard() {
+  if (!editingChapter) return '';
+  const ec = editingChapter;
+  if (ec.loading) {
+    return `<div class="card"><div class="empty">Đang tải nội dung chương...</div></div>`;
+  }
+  return `
+    <div class="card" id="editCard">
+      <h2>Sửa chương${ec.chapter_number != null ? ` #${ec.chapter_number}` : ''}</h2>
+      <div class="field" style="margin-bottom:12px">
+        <label>Tên chương</label>
+        <input type="text" id="editTitle" value="${escHtml(ec.title)}"/>
+      </div>
+      <div class="field" style="margin-bottom:12px;max-width:420px">
+        <label>Quyển</label>
+        <input type="text" id="editVolume" value="${escHtml(ec.volume || '')}" placeholder="VD: Quyển 1: Săn Ma"/>
+      </div>
+      <div class="field" style="margin-bottom:16px">
+        <label>Nội dung</label>
+        <textarea id="editContent" rows="18" style="width:100%;font-family:inherit">${escHtml(ec.content || '')}</textarea>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-gold" id="saveEditBtn">Lưu chương</button>
+        <button class="btn" id="cancelEditBtn">Huỷ</button>
+      </div>
+    </div>`;
+}
+
 function renderExistingCard() {
   const volumes = [...new Set(EXISTING.map(c => c.volume).filter(Boolean))];
   const filtered = volumeFilterDelete
@@ -252,6 +284,7 @@ function renderExistingCard() {
                 </td>
                 <td style="text-align:right;white-space:nowrap">
                   ${c.status !== 'published' ? `<button class="btn btn-sm" data-publish="${c.id}">Đăng ngay</button>` : `<button class="btn btn-sm" data-unpublish="${c.id}">Gỡ đăng</button>`}
+                  <button class="btn btn-sm" data-edit="${c.id}">Sửa</button>
                   <button class="btn btn-sm btn-danger" data-delch="${c.id}">Xoá</button>
                 </td>
               </tr>`).join('')}
@@ -304,7 +337,13 @@ function bindInteractivity() {
 
   document.querySelectorAll('[data-publish]').forEach(b => b.addEventListener('click', () => setChapterStatus(b.dataset.publish, 'published')));
   document.querySelectorAll('[data-unpublish]').forEach(b => b.addEventListener('click', () => setChapterStatus(b.dataset.unpublish, 'draft')));
+  document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openEditChapter(b.dataset.edit)));
   document.querySelectorAll('[data-delch]').forEach(b => b.addEventListener('click', () => delChapter(b.dataset.delch)));
+
+  const saveEditBtn = document.getElementById('saveEditBtn');
+  if (saveEditBtn) saveEditBtn.addEventListener('click', saveEditChapter);
+  const cancelEditBtn = document.getElementById('cancelEditBtn');
+  if (cancelEditBtn) cancelEditBtn.addEventListener('click', cancelEdit);
 
   // ── Xoá theo quyển / toàn bộ / theo lựa chọn ──
   const volSel = document.getElementById('volumeFilterSelect');
@@ -402,6 +441,57 @@ async function setChapterStatus(id, status) {
     toast(status === 'published' ? 'Đã đăng chương' : 'Đã gỡ đăng', 'ok');
     await loadExisting(); render();
   } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+}
+
+/* ─── Sửa chương: mở form, tải nội dung đầy đủ, lưu lại qua PUT ─── */
+async function openEditChapter(id) {
+  editingChapter = { id, loading: true };
+  render();
+  try {
+    const { chapter } = await api(`/api/chapters?id=${id}`);
+    editingChapter = {
+      id,
+      title: chapter.title,
+      content: chapter.content,
+      volume: chapter.volume || '',
+      chapter_number: chapter.chapter_number,
+    };
+  } catch (e) {
+    toast('Lỗi tải chương: ' + e.message, 'err');
+    editingChapter = null;
+  }
+  render();
+  // cuộn tới form sửa cho dễ thấy
+  document.getElementById('editCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelEdit() {
+  editingChapter = null;
+  render();
+}
+
+async function saveEditChapter() {
+  const title = document.getElementById('editTitle').value.trim();
+  const content = document.getElementById('editContent').value;
+  const volume = document.getElementById('editVolume').value.trim();
+  if (!title) { toast('Tên chương không được để trống', 'err'); return; }
+
+  const btn = document.getElementById('saveEditBtn');
+  btn.disabled = true; btn.textContent = 'Đang lưu...';
+  try {
+    await api(`/api/chapters?id=${editingChapter.id}`, {
+      method: 'PUT',
+      body: { title, content, volume: volume || null },
+    });
+    toast('Đã lưu chương', 'ok');
+    editingChapter = null;
+    await loadExisting();
+    render();
+  } catch (e) {
+    toast('Lỗi: ' + e.message, 'err');
+    btn.disabled = false;
+    btn.textContent = 'Lưu chương';
+  }
 }
 
 async function delChapter(id) {
