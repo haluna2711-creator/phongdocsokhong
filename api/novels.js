@@ -38,19 +38,19 @@ module.exports = async function handler(req, res) {
       const now = new Date();
       const startOfMonthIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      // Số đếm chương giờ đọc trực tiếp từ 2 cột denormalize trên chính bảng
-      // novels (chapter_count_total / chapter_count_published), được đồng bộ
-      // mỗi khi chapters thay đổi bên CockroachDB (xem
-      // api/_lib/chapterCounts.js). Không còn RPC get_chapter_counts nữa vì
-      // bảng chapters đã chuyển sang CockroachDB — Postgres không JOIN/RPC
-      // xuyên 2 database khác nhau được.
-      data.forEach((n) => {
-        n.chapter_count = admin ? (n.chapter_count_total || 0) : (n.chapter_count_published || 0);
-      });
-
-      const { data: viewRows, error: vErr } = await db.rpc(
-        'get_view_counts', { ids: novelIds, month_start: startOfMonthIso }
-      );
+      // Đếm số chương + đếm lượt xem qua 2 hàm SQL (get_chapter_counts /
+      // get_view_counts, xem sql/stats_functions.sql) — Postgres đếm sẵn bằng
+      // GROUP BY và trả về ĐÚNG SỐ DÒNG BẰNG SỐ TRUYỆN, thay vì phải kéo về
+      // toàn bộ chapters/novel_views rồi đếm bằng JS ở server. Hai bảng này
+      // càng nhiều dữ liệu (nhiều view/chương) thì cách cũ càng chậm dần theo
+      // thời gian; cách này giữ tốc độ ổn định vì đã có index hỗ trợ.
+      // Hai truy vấn độc lập nhau → chạy song song bằng Promise.all thay vì
+      // await tuần tự, giảm gần một nửa thời gian chờ.
+      const [{ data: chRows, error: chErr }, { data: viewRows, error: vErr }] = await Promise.all([
+        db.rpc('get_chapter_counts', { ids: novelIds, only_published: !admin }),
+        db.rpc('get_view_counts', { ids: novelIds, month_start: startOfMonthIso }),
+      ]);
+      if (chErr) console.error('[api/novels] get_chapter_counts:', chErr.message);
       if (vErr) console.error('[api/novels] get_view_counts:', vErr.message);
 
       const chapterCounts = {};
