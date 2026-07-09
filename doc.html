@@ -119,6 +119,9 @@ body {
   font-family: 'Be Vietnam Pro', sans-serif; font-size: 10.5px; font-weight: 500;
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-light);
 }
+/* Label riêng cho nhóm chọn nền — luôn theo màu accent (vàng ở theme tối),
+   không ảnh hưởng tới label "Cỡ chữ" / "Font" vẫn dùng --text-light như cũ. */
+.slabel-theme { color: var(--accent); }
 
 .theme-dot {
   width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent;
@@ -421,7 +424,7 @@ body {
 
     <div id="settings-panel" role="region" aria-label="Cài đặt hiển thị">
       <div class="sgroup">
-        <span class="slabel">Nền</span>
+        <span class="slabel slabel-theme">Nền</span>
         <button class="theme-dot dot-light" id="dot-light" onclick="setTheme('light')" aria-label="Nền sáng" title="Nền sáng"></button>
         <button class="theme-dot dot-yellow" id="dot-yellow" onclick="setTheme('yellow')" aria-label="Nền vàng" title="Nền vàng"></button>
         <button class="theme-dot dot-dark active" id="dot-dark" onclick="setTheme('dark')" aria-label="Nền tối" title="Nền tối"></button>
