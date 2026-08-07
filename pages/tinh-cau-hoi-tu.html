@@ -311,7 +311,12 @@ function tchParseNovel(novel){
 
   const labels     = novel.novel_labels || [];
   const labelNames = labels.map(nl => nl.labels?.name).filter(Boolean);
-  const genre = labelNames[0] || 'Truyện';
+  
+  // Ưu tiên "Đam Mỹ" lên đầu nếu truyện có gắn tag này, không phụ thuộc thứ tự trả về từ DB
+  const genre = labelNames.includes('Đam Mỹ')
+    ? 'Đam Mỹ'
+    : (labelNames[0] || 'Truyện');
+  
   const bg    = (window.PDS_CONFIG && PDS_CONFIG.GENRE_BG && PDS_CONFIG.GENRE_BG[genre]) || (window.PDS_CONFIG && PDS_CONFIG.GENRE_BG['default']) || 'linear-gradient(145deg,#111111,#1a1a1a)';
 
   const updatedAt = novel.updated_at ? new Date(novel.updated_at).getTime() : (novel.created_at ? new Date(novel.created_at).getTime() : 0);
