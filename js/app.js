@@ -270,6 +270,7 @@ function buildCard(book) {
 }
 
 const MAX_PER_GENRE = 10;
+const MAX_FILTER_TAGS = 6;
 
 // Nhóm truyện thư viện (có label Đam Mỹ) theo thể loại, mỗi thể loại chỉ giữ lại
 // tối đa MAX_PER_GENRE truyện được đọc nhiều nhất (viewsTotal giảm dần).
@@ -317,12 +318,22 @@ function renderLibrary() {
 function renderFilterBar() {
   const bar = document.getElementById('libraryFilterBar');
   if (!bar) return;
-  const genres = [...new Set(libraryBooks.filter(b => b.inLibrary).map(b => b.genre))];
+  const inLib = libraryBooks.filter(b => b.inLibrary);
+
+  // Sắp thể loại theo tổng lượt đọc giảm dần — tag "hot" nhất hiện trước.
+  const viewsByGenre = {};
+  inLib.forEach(b => { viewsByGenre[b.genre] = (viewsByGenre[b.genre] || 0) + (b.viewsTotal || 0); });
+  const genres = Object.keys(viewsByGenre).sort((a, b) => viewsByGenre[b] - viewsByGenre[a]);
+
+  const visibleGenres = genres.slice(0, MAX_FILTER_TAGS);
+  const hasMore = genres.length > visibleGenres.length;
+
   bar.innerHTML = `
     <button class="lib-filter-btn active" data-filter="all" onclick="filterLibrary('all',this)">
       Đam Mỹ <span class="lib-count-badge" id="countAll">0</span>
     </button>
-    ${genres.map(g => `<button class="lib-filter-btn" data-filter="${g}" onclick="filterLibrary('${g}',this)">${g}</button>`).join('')}`;
+    ${visibleGenres.map(g => `<button class="lib-filter-btn" data-filter="${g}" onclick="filterLibrary('${g}',this)">${g}</button>`).join('')}
+    ${hasMore ? `<a class="lib-filter-btn lib-filter-more" href="/p/the-loai">Xem thêm ✦</a>` : ''}`;
   updateCounts();
 }
 
