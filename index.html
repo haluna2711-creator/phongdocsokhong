@@ -131,68 +131,6 @@
     </div>
   </div>
 </header>
-<!-- ════════ NOTICE MARQUEE ════════ -->
-<div class="pds-marquee">
-  <div class="pds-marquee-track">
-    <span class="pds-marquee-item">✦ Trong vòng 2 năm gần nhất, hệ thống không ghi nhận có lịch sử đăng nhập mới thì sẽ tự động khóa tài khoản. Chủ sốp không hỗ trợ mở lại, vui lòng đăng ký bằng tài khoản khác. ✦</span>
-    <span class="pds-marquee-item">✦ Trong vòng 2 năm gần nhất, hệ thống không ghi nhận có lịch sử đăng nhập mới thì sẽ tự động khóa tài khoản. Chủ sốp không hỗ trợ mở lại, vui lòng đăng ký bằng tài khoản khác. ✦</span>
-  </div>
-</div>
-
-<style>
-.pds-marquee{
-  position:relative;
-  width:100%;
-  overflow:hidden;
-  background:linear-gradient(180deg,#0d0d0d,#0A0A0A);
-  border-top:1px solid rgba(248,219,143,.18);
-  border-bottom:1px solid rgba(248,219,143,.18);
-  padding:9px 0;
-  box-sizing:border-box;
-}
-.pds-marquee::before,
-.pds-marquee::after{
-  content:'';
-  position:absolute;
-  top:0;bottom:0;
-  width:60px;
-  z-index:2;
-  pointer-events:none;
-}
-.pds-marquee::before{
-  left:0;
-  background:linear-gradient(to right,#0A0A0A,transparent);
-}
-.pds-marquee::after{
-  right:0;
-  background:linear-gradient(to left,#0A0A0A,transparent);
-}
-.pds-marquee-track{
-  display:flex;
-  width:max-content;
-  animation:pdsMarqueeScroll 32s linear infinite;
-}
-.pds-marquee-item{
-  flex-shrink:0;
-  padding:0 48px;
-  font-family:'EB Garamond','Be Vietnam Pro',serif;
-  font-style:italic;
-  font-size:13.5px;
-  letter-spacing:.02em;
-  color:#F8DB8F;
-  opacity:.75;
-  white-space:nowrap;
-  text-shadow:0 0 12px rgba(248,219,143,.25);
-}
-@keyframes pdsMarqueeScroll{
-  from{transform:translateX(0);}
-  to{transform:translateX(-50%);}
-}
-@media (max-width:600px){
-  .pds-marquee-item{font-size:12px;padding:0 28px;}
-  .pds-marquee-track{animation-duration:22s;}
-}
-</style>
   
 <!-- Overlay + Mobile Drawer -->
 <div class="mobile-overlay" id="mobileOverlay"></div>
