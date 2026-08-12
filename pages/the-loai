@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="vi" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Tất Cả Thể Loại – Phòng Đọc Số 0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="preload" as="style"
+  href="https://fonts.googleapis.com/css2?family=Vollkorn:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Be+Vietnam+Pro:wght@400;500&display=swap"
+  onload="this.onload=null;this.rel='stylesheet'"/>
+<noscript>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Vollkorn:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Be+Vietnam+Pro:wght@400;500&display=swap"/>
+</noscript>
+<link rel="stylesheet" href="/css/style.css"/>
+
+<!-- ════════════════════════════════════
+     CSS riêng cho trang này (không có trong style.css dùng chung).
+     Không định nghĩa lại :root / reset / noise-grain / .shimmer-line vì
+     style.css đã có sẵn — tránh trùng lặp và lệch giá trị về sau.
+     ════════════════════════════════════ -->
+<style>
+#starsCanvas{
+  position:fixed;inset:0;width:100%;height:100%;
+  pointer-events:none;z-index:0;opacity:0.7;
+  transform:translateZ(0);
+}
+
+.tagpage-wrap{position:relative;z-index:1;max-width:1300px;margin:0 auto;padding:0 28px 100px}
+
+.tagpage-hero{padding:64px 0 50px;text-align:center;position:relative}
+.tagpage-eyebrow{font-family:'Vollkorn',serif;font-size:11px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold-light);opacity:0.7;margin-bottom:20px}
+.tagpage-title{font-family:'Vollkorn',serif;font-size:clamp(32px,5vw,56px);font-weight:900;color:var(--gold-light);line-height:1.1;letter-spacing:0.04em;margin-bottom:8px}
+.tagpage-title-sub{font-family:'Vollkorn',serif;font-size:clamp(14px,2vw,18px);font-weight:400;font-style:italic;color:var(--text-muted);margin-bottom:32px}
+.tagpage-divider{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:32px}
+.tagpage-divider-line{width:80px;height:1px;background:linear-gradient(to right,transparent,var(--gold-border))}
+.tagpage-divider-line.right{background:linear-gradient(to left,transparent,var(--gold-border))}
+.tagpage-divider-gem{color:var(--gold-light);font-size:12px;opacity:0.6}
+.tagpage-desc{max-width:700px;margin:0 auto;font-size:17px;line-height:2;color:rgba(245,240,232,0.72);font-style:italic;letter-spacing:0.01em}
+
+.tagpage-count-bar{display:flex;align-items:center;gap:20px;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--gold-border)}
+.tagpage-count-num{font-family:'Vollkorn',serif;font-size:28px;font-weight:700;color:var(--gold-light)}
+.tagpage-count-label{font-size:13px;color:var(--text-muted)}
+.tagpage-count-bar-line{flex:1;height:1px;background:linear-gradient(to right,var(--gold-border),transparent)}
+
+.tagpage-nav{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:44px}
+.tagpage-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 16px;border:1px solid var(--gold-border);border-radius:999px;
+  font-family:'Vollkorn',serif;font-size:12px;font-weight:600;letter-spacing:0.04em;
+  color:var(--gold-light);text-decoration:none;background:var(--black-2);
+  transition:background var(--transition),border-color var(--transition),transform var(--transition);
+}
+.tagpage-chip:hover{background:rgba(248,219,143,0.08);border-color:rgba(248,219,143,0.55);transform:translateY(-2px)}
+.tagpage-chip-count{opacity:0.55;font-size:11px}
+
+.tagpage-section{margin-bottom:56px;scroll-margin-top:100px}
+.tagpage-section-head{display:flex;align-items:baseline;gap:12px;margin-bottom:22px}
+.tagpage-section-title{font-family:'Vollkorn',serif;font-size:20px;font-weight:700;color:var(--gold-light);letter-spacing:0.03em}
+.tagpage-section-count{font-size:12px;color:var(--text-muted);font-style:italic}
+.tagpage-section-line{flex:1;height:1px;background:linear-gradient(to right,var(--gold-border),transparent)}
+
+.tagpage-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:28px;contain:layout style}
+@media(max-width:1024px){.tagpage-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:720px){.tagpage-grid{grid-template-columns:repeat(2,1fr);gap:16px}}
+@media(max-width:440px){.tagpage-grid{grid-template-columns:repeat(2,1fr);gap:12px}}
+
+.tagpage-card{
+  display:flex;flex-direction:column;background:var(--black-2);
+  border:1px solid var(--gold-border);border-radius:8px;overflow:hidden;
+  transition:border-color var(--transition),box-shadow var(--transition),transform var(--transition);
+  cursor:pointer;contain:layout style paint;
+}
+.tagpage-card:hover{border-color:rgba(248,219,143,0.55);box-shadow:0 16px 48px rgba(0,0,0,0.7),0 0 0 1px rgba(248,219,143,0.18);transform:translateY(-5px)}
+
+.tagpage-cover{position:relative;width:100%;aspect-ratio:2/3;overflow:hidden;flex-shrink:0}
+.tagpage-cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.5s ease;content-visibility:auto}
+.tagpage-card:hover .tagpage-cover img{transform:scale(1.05)}
+.tagpage-cover-ph{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(145deg,var(--black-3) 0%,var(--black-4) 100%);color:var(--gold-border);font-size:12px;text-align:center;padding:16px}
+.tagpage-cover-overlay{position:absolute;inset:0;background:rgba(10,10,10,0.8);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity var(--transition);pointer-events:none}
+.tagpage-card:hover .tagpage-cover-overlay{opacity:1;pointer-events:auto}
+.tagpage-btn-read{display:inline-flex;align-items:center;gap:6px;background:var(--gold-light);color:var(--black);border:none;padding:10px 20px;border-radius:24px;font-family:'Vollkorn',serif;font-size:11px;font-weight:700;letter-spacing:0.12em;cursor:pointer;transition:background var(--transition),transform var(--transition);text-decoration:none;white-space:nowrap}
+.tagpage-btn-read:hover{background:var(--gold-hover);transform:scale(1.04)}
+
+.tagpage-body{padding:14px 14px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
+.tagpage-title-txt{font-family:'Vollkorn',serif;font-size:14px;font-weight:700;color:var(--white);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tagpage-desc-txt{font-size:12px;color:var(--text-muted);line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tagpage-card-divider{width:30px;height:1px;background:var(--gold-border);margin:4px 0}
+.tagpage-meta{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted)}
+.tagpage-btn-row{margin-top:auto;padding-top:10px}
+.tagpage-read-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px 12px;background:transparent;border:1px solid var(--gold-border);border-radius:6px;color:var(--gold-light);font-family:'Vollkorn',serif;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:background var(--transition),border-color var(--transition),color var(--transition);text-decoration:none}
+.tagpage-read-btn:hover{background:var(--gold-dim);border-color:var(--gold-light);color:var(--gold-hover)}
+
+.tagpage-skel{background:var(--black-2);border:1px solid var(--gold-border);border-radius:8px;overflow:hidden}
+.tagpage-skel-cover{width:100%;aspect-ratio:2/3;background:linear-gradient(90deg,var(--black-3) 25%,var(--black-4) 50%,var(--black-3) 75%);background-size:200% 100%;animation:tagpageShimmerSkel 1.5s infinite}
+.tagpage-skel-body{padding:14px}
+.tagpage-skel-line{height:10px;border-radius:4px;background:linear-gradient(90deg,var(--black-3) 25%,var(--black-4) 50%,var(--black-3) 75%);background-size:200% 100%;animation:tagpageShimmerSkel 1.5s infinite;margin-bottom:8px}
+.tagpage-skel-line.short{width:55%}.tagpage-skel-line.med{width:80%}
+@keyframes tagpageShimmerSkel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+.tagpage-message{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:16px;text-align:center}
+.tagpage-message svg{opacity:0.25}
+.tagpage-message-title{font-family:'Vollkorn',serif;font-size:20px;color:var(--gold-light);letter-spacing:0.04em}
+.tagpage-message-sub{font-size:14px;color:var(--text-muted);font-style:italic;max-width:320px;line-height:1.8}
+
+@media(max-width:600px){
+  .tagpage-wrap{padding:0 16px 80px}
+  .tagpage-hero{padding:48px 0 32px}
+  .tagpage-desc{font-size:15px}
+  .tagpage-body{padding:10px 10px 12px}
+  .tagpage-title-txt{font-size:13px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .tagpage-skel-cover,.tagpage-skel-line{animation:none;background:var(--black-3)}
+}
+</style>
+</head>
+<body>
+
+<canvas id="starsCanvas"></canvas>
+
+<!-- ════════ HEADER (giống hệt trang chủ) ════════ -->
+<header id="header">
+  <div class="header-inner">
+    <div class="header-logo-row">
+      <button class="hamburger" id="hamburger" aria-label="Mở menu">
+        <span></span><span></span><span></span>
+      </button>
+      <a class="logo" href="/">
+        <img class="logo-img" src="/logo-ngang.png" alt="Phòng Đọc Số 0" width="240" height="72" fetchpriority="high" decoding="sync"/>
+      </a>
+      <div class="header-right">
+        <div class="search-bar">
+          <input type="text" placeholder="Tìm truyện..."/>
+          <button aria-label="Tìm kiếm">
+            <svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </button>
+        </div>
+        <button class="mobile-search-icon" id="mobileSearchIcon" aria-label="Tìm kiếm">
+          <svg fill="none" height="17" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="17"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="header-nav-row">
+      <nav>
+        <a href="/">Trang Chủ</a>
+        <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+        <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+        <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<!-- Overlay + Mobile Drawer -->
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-head">
+    <span class="mobile-menu-title">Menu</span>
+    <span class="swipe-hint-label">vuốt để đóng</span>
+  </div>
+  <div class="mobile-search-wrap">
+    <div class="search-bar">
+      <input id="mobileDrawerSearchInput" type="text" placeholder="Tìm truyện" readonly/>
+      <button id="mobileDrawerSearchBtn"><svg fill="none" height="15" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="15"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+    </div>
+  </div>
+  <nav>
+    <a href="/">Trang Chủ</a>
+    <a href="/p/quy-dao-luan-chuyen">Quỹ Đạo Luân Chuyển</a>
+    <a href="/p/tinh-cau-hoi-tu">Tinh Cầu Hội Tụ</a>
+    <a href="/p/the-ban-doc">Thẻ Bạn Đọc</a>
+  </nav>
+  <div class="mobile-menu-footer">
+    <div class="mobile-menu-footer-line"></div>
+    <span class="mobile-menu-footer-gem">✦</span>
+    <div class="mobile-menu-footer-line" style="background:linear-gradient(to left,var(--gold-border),transparent)"></div>
+  </div>
+</div>
+
+<!-- Search Overlay -->
+<div class="search-overlay" id="searchOverlay">
+  <button class="search-overlay-close" id="searchOverlayClose">×</button>
+  <div class="search-overlay-title">✦ Tìm Kiếm Truyện</div>
+  <div class="search-bar">
+    <input id="searchOverlayInput" type="text" placeholder="Nhập tên truyện, thể loại..." autocomplete="off" spellcheck="false"/>
+    <button id="searchOverlayBtn"><svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="18"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+  </div>
+  <div class="search-hint" id="searchHint">Gõ để tìm truyện trong thư viện...</div>
+  <div class="search-results" id="searchResults"></div>
+  <div class="search-not-found" id="searchNotFound">
+    <svg class="search-nf-cosmos" viewBox="0 0 220 160" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient cx="50%" cy="50%" id="nfBg" r="50%"><stop offset="0%" stop-color="#1a0f2e"/><stop offset="100%" stop-color="#0a0a0a"/></radialGradient></defs><ellipse cx="110" cy="80" fill="url(#nfBg)" opacity="0.6" rx="100" ry="70"/><g fill="#F8DB8F" opacity="0.5"><circle cx="30" cy="25" r="1"/><circle cx="80" cy="15" r="0.7"/><circle cx="140" cy="20" r="1.2"/><circle cx="190" cy="35" r="0.8"/><circle cx="55" cy="50" r="0.6"/><circle cx="170" cy="55" r="1"/><circle cx="20" cy="80" r="0.9"/><circle cx="200" cy="90" r="0.7"/></g><circle cx="110" cy="72" fill="none" r="32" stroke="rgba(248,219,143,0.25)" stroke-width="2"/><line stroke="rgba(248,219,143,0.3)" stroke-linecap="round" stroke-width="3" x1="133" x2="152" y1="95" y2="114"/><text fill="rgba(248,219,143,0.2)" font-family="Vollkorn,serif" font-size="28" font-weight="700" text-anchor="middle" x="110" y="82">?</text></svg>
+    <div class="search-nf-title">Không tìm thấy truyện nào</div>
+    <div class="search-nf-sub" id="searchNfQuery"></div>
+    <div class="search-nf-tip">Thử tìm với từ khóa khác hoặc kiểm tra thể loại trong thư viện.</div>
+  </div>
+</div>
+
+<!-- ════════ NỘI DUNG TRANG TẤT CẢ THỂ LOẠI ════════ -->
+<main class="tagpage-wrap">
+  <div class="tagpage-hero">
+    <div class="tagpage-eyebrow">✦ Phòng Đọc Số 0</div>
+    <div class="tagpage-title">Tất Cả Thể Loại</div>
+    <div class="tagpage-title-sub">Toàn Bộ Thư Viện</div>
+    <div class="tagpage-divider">
+      <div class="tagpage-divider-line"></div>
+      <span class="tagpage-divider-gem">✦</span>
+      <div class="tagpage-divider-line right"></div>
+    </div>
+    <p class="tagpage-desc">
+      Mỗi thể loại là một quỹ đạo riêng trong dải ngân hà Phòng Đọc Số 0, tập hợp toàn bộ những câu chuyện đã ghé qua nơi đây. Chọn một quỹ đạo bên dưới để bước vào thế giới của riêng nó.
+    </p>
+    <div class="shimmer-line" style="margin:32px auto;max-width:300px"></div>
+  </div>
+
+  <div class="tagpage-count-bar" id="tagpageCountBar" style="display:none">
+    <span class="tagpage-count-num" id="tagpageCountNum">0</span>
+    <span class="tagpage-count-label">truyện · <span id="tagpageGenreNum">0</span> thể loại</span>
+    <div class="tagpage-count-bar-line"></div>
+  </div>
+
+  <div class="tagpage-nav" id="tagpageNav"></div>
+
+  <div id="tagpageSections"></div>
+</main>
+
+<!-- ════════ FOOTER (giống hệt trang chủ) ════════ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">✦ Phòng Đọc Số 0 ✦</div>
+    <div class="footer-links">
+      <a href="/p/lien-he">Liên Hệ</a>
+      <a href="/p/quy-dinh">Quy Định</a>
+    </div>
+    <div class="footer-copy">© <span id="footerYearPds">2026</span> Phòng Đọc Số 0 · Ẩn Mình Trong Gay Trận
+      <span style="display:block;">Cảm ơn chủ sốp Noisy Team đã hướng dẫn tui cook web này</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Back to top -->
+<button id="btt" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Về đầu trang">
+  <div class="btt-ring"></div>
+  <svg class="btt-icon" fill="none" height="16" viewBox="0 0 16 16" width="16"><line stroke="#F8DB8F" stroke-linecap="round" stroke-width="1.8" x1="8" x2="8" y1="12" y2="4"/><polyline fill="none" points="4.5,7 8,3.5 11.5,7" stroke="#F8DB8F" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/></svg>
+  <span class="btt-label">TOP</span>
+</button>
+
+<!-- Scripts — thứ tự quan trọng. auth.js tự bỏ qua gate cho path /p/, nên
+     load bình thường để không phá vỡ hành vi chung của site. app.js lo
+     header sticky (đã có sẵn trong style.css), search overlay, mobile menu,
+     back-to-top — mọi hàm init đều tự return sớm nếu không thấy phần tử
+     tương ứng (kể cả marsPlanet đã bị xoá khỏi trang này) nên không lỗi
+     khi thiếu banner/coverflow/carousel/mars của trang chủ. -->
+<script src="/js/config.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/app.js"></script>
+
+<script>
+// ════════════════════════════════════
+// Stars Canvas — nền riêng cho trang Tất Cả Thể Loại (copy y hệt trang
+// Quỹ Đạo Luân Chuyển để giữ đồng bộ cảm giác thị giác giữa các trang phụ)
+// ════════════════════════════════════
+(function(){
+  const c   = document.getElementById('starsCanvas');
+  const ctx = c.getContext('2d', { alpha: true, desynchronized: true });
+
+  let stars = [], raf, W, H;
+  const isMobile = window.innerWidth < 721;
+  const DENSITY = isMobile ? 0.12 : 0.3;
+
+  function resize(){ W = c.width = window.innerWidth; H = c.height = window.innerHeight; buildStars(); }
+  function buildStars(){
+    const n = Math.floor(W * DENSITY);
+    stars = new Array(n);
+    for(let i = 0; i < n; i++){
+      stars[i] = { x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.4+0.3, a: Math.random()*0.8+0.2, phase: Math.random()*6.28318, speed: Math.random()*0.012+0.005, gold: Math.random() > 0.45 };
+    }
+  }
+  let lastFrameTime = 0;
+  const TARGET_FPS = isMobile ? 30 : 60;
+  const FRAME_MS = 1000 / TARGET_FPS;
+  function draw(now){
+    raf = requestAnimationFrame(draw);
+    if(now - lastFrameTime < FRAME_MS) return;
+    lastFrameTime = now;
+    ctx.clearRect(0,0,W,H);
+    for(let i=0;i<stars.length;i++){ const s=stars[i]; if(!s.gold) continue; s.phase+=s.speed; ctx.globalAlpha = s.a*(0.5+0.5*Math.sin(s.phase)); ctx.fillStyle='rgba(248,219,143,1)'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.28318); ctx.fill(); }
+    for(let i=0;i<stars.length;i++){ const s=stars[i]; if(s.gold) continue; s.phase+=s.speed; ctx.globalAlpha = s.a*(0.5+0.5*Math.sin(s.phase)); ctx.fillStyle='rgba(200,168,75,1)'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.28318); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){ cancelAnimationFrame(raf); } else { lastFrameTime = 0; raf = requestAnimationFrame(draw); }
+  });
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 200); });
+  resize();
+  raf = requestAnimationFrame(draw);
+})();
+
+// ════════════════════════════════════
+// DANH SÁCH TOÀN BỘ THỂ LOẠI + TOÀN BỘ TRUYỆN — lấy từ /api/novels (đã có
+// sẵn, public, tự lọc published=true). Phạm vi giống trang chủ: chỉ truyện
+// có gắn nhãn "Đam Mỹ" mới được đưa vào đây, nhóm theo thể loại còn lại.
+// ════════════════════════════════════
+const TAG_GENRE_MAP = {
+  'Trinh thám': 'Trinh thám',
+  'Vô hạn lưu': 'Vô hạn lưu',
+  'Cổ đại':     'Cổ đại',
+  'Kinh dị':    'Kinh dị',
+  'Hệ thống':   'Hệ thống',
+};
+const TAG_DAM_MY_SLUG = 'dam-my';
+
+const TAG_ICON_ARROW = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>`;
+const TAG_ICON_EYE   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const TAG_ICON_BOOK  = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`;
+const TAG_ICON_OPEN  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
+
+function tagFormatNum(n){
+  return (n || 0).toLocaleString('vi-VN');
+}
+
+function tagSlugify(s){
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+
+function tagParseNovel(novel){
+  const labels     = novel.novel_labels || [];
+  const labelSlugs = labels.map(nl => nl.labels?.slug).filter(Boolean);
+  const labelNames = labels.map(nl => nl.labels?.name).filter(Boolean);
+
+  if(!labelSlugs.includes(TAG_DAM_MY_SLUG)) return null;
+
+  const genreLabels = labelNames.filter((_, i) => labelSlugs[i] !== TAG_DAM_MY_SLUG);
+  const genre = genreLabels.find(l => TAG_GENRE_MAP[l]) || genreLabels[0] || 'Khác';
+  const bg = (window.PDS_CONFIG && PDS_CONFIG.GENRE_BG && PDS_CONFIG.GENRE_BG[genre]) || (window.PDS_CONFIG && PDS_CONFIG.GENRE_BG['default']) || 'linear-gradient(145deg,#111111,#1a1a1a)';
+
+  return {
+    title: novel.title || 'Không có tiêu đề',
+    genre, bg,
+    cover: novel.cover_url || '',
+    readUrl: `/post/${novel.slug}`,
+    desc: (novel.description || '').slice(0, 160),
+    chapter: novel.chapter_count ? `Ch.${novel.chapter_count}` : '',
+    viewsTotal: novel.view_count_total || 0,
+  };
+}
+
+function tagBuildCard(story, index){
+  const hasImg = !!story.cover;
+  const loadAttr = index < 8 ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" decoding="async"';
+  const card = document.createElement('div');
+  card.className = 'tagpage-card';
+  card.innerHTML =
+    `<div class="tagpage-cover">` +
+    (hasImg ? `<img src="${story.cover}" alt="${story.title}" ${loadAttr} onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : '') +
+    `<div class="tagpage-cover-ph" style="background:${story.bg};${hasImg?'display:none':''}">${TAG_ICON_BOOK}<span style="font-size:11px;line-height:1.4;opacity:0.7">${story.title}</span></div>
+     <div class="tagpage-cover-overlay"><a class="tagpage-btn-read" href="${story.readUrl}">${TAG_ICON_ARROW}ĐỌC NGAY</a></div>
+    </div>
+    <div class="tagpage-body">
+      <div class="tagpage-title-txt">${story.title}</div>
+      <div class="tagpage-card-divider"></div>
+      ${story.desc ? `<div class="tagpage-desc-txt">${story.desc}</div>` : ''}
+      <div class="tagpage-meta">${TAG_ICON_EYE}<span>${tagFormatNum(story.viewsTotal)} lượt đọc${story.chapter ? ' · '+story.chapter : ''}</span></div>
+      <div class="tagpage-btn-row"><a class="tagpage-read-btn" href="${story.readUrl}">${TAG_ICON_OPEN}Đọc Truyện</a></div>
+    </div>`;
+  return card;
+}
+
+function tagRenderSections(stories){
+  const sectionsWrap = document.getElementById('tagpageSections');
+  const navWrap      = document.getElementById('tagpageNav');
+  const countBar      = document.getElementById('tagpageCountBar');
+  const countNum       = document.getElementById('tagpageCountNum');
+  const genreNum        = document.getElementById('tagpageGenreNum');
+
+  if(!stories.length){ tagShowEmpty(); return; }
+
+  const groups = {};
+  stories.forEach(s => { (groups[s.genre] = groups[s.genre] || []).push(s); });
+  const genres = Object.keys(groups).sort((a, b) => {
+    const va = groups[a].reduce((sum, x) => sum + x.viewsTotal, 0);
+    const vb = groups[b].reduce((sum, x) => sum + x.viewsTotal, 0);
+    return vb - va;
+  });
+
+  countNum.textContent  = stories.length;
+  genreNum.textContent  = genres.length;
+  countBar.style.display = 'flex';
+
+  navWrap.innerHTML = genres.map(g => {
+    const id = 'tag-' + tagSlugify(g);
+    return `<a class="tagpage-chip" href="#${id}">${g} <span class="tagpage-chip-count">${groups[g].length}</span></a>`;
+  }).join('');
+
+  const sectionsFrag = document.createDocumentFragment();
+  genres.forEach(genre => {
+    const books = groups[genre].sort((a, b) => b.viewsTotal - a.viewsTotal);
+    const id = 'tag-' + tagSlugify(genre);
+
+    const section = document.createElement('section');
+    section.className = 'tagpage-section';
+    section.id = id;
+    section.innerHTML = `
+      <div class="tagpage-section-head">
+        <div class="tagpage-section-title">✦ ${genre}</div>
+        <div class="tagpage-section-count">${books.length} truyện</div>
+        <div class="tagpage-section-line"></div>
+      </div>
+      <div class="tagpage-grid"></div>`;
+
+    const grid = section.querySelector('.tagpage-grid');
+    const cardsFrag = document.createDocumentFragment();
+    books.forEach((b, i) => cardsFrag.appendChild(tagBuildCard(b, i)));
+    grid.appendChild(cardsFrag);
+
+    sectionsFrag.appendChild(section);
+  });
+  sectionsWrap.replaceChildren(sectionsFrag);
+}
+
+function tagShowSkeleton(){
+  const item = `<div class="tagpage-skel"><div class="tagpage-skel-cover"></div><div class="tagpage-skel-body"><div class="tagpage-skel-line short"></div><div class="tagpage-skel-line med"></div><div class="tagpage-skel-line"></div><div class="tagpage-skel-line short"></div></div></div>`;
+  const wrap = document.getElementById('tagpageSections');
+  const grid = document.createElement('div');
+  grid.className = 'tagpage-grid';
+  grid.innerHTML = item.repeat(8);
+  wrap.replaceChildren(grid);
+}
+
+function tagShowEmpty(){
+  document.getElementById('tagpageSections').innerHTML = `
+    <div class="tagpage-message">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <div class="tagpage-message-title">Chưa có truyện nào</div>
+      <div class="tagpage-message-sub">Thư viện đang trống, quay lại sau nhé.</div>
+    </div>`;
+}
+
+function tagShowError(){
+  document.getElementById('tagpageSections').innerHTML = `
+    <div class="tagpage-message">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <div class="tagpage-message-title">Không thể tải dữ liệu</div>
+      <div class="tagpage-message-sub">Vui lòng thử lại sau.</div>
+    </div>`;
+}
+
+async function tagLoadNovels(){
+  tagShowSkeleton();
+  try{
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch('/api/novels', { signal: ctrl.signal, credentials: 'omit' });
+    clearTimeout(timer);
+    const data = await res.json();
+    if(!data.ok || !Array.isArray(data.novels)) { tagShowError(); return; }
+
+    const stories = data.novels.map(tagParseNovel).filter(Boolean);
+    tagRenderSections(stories);
+  }catch(err){
+    console.warn('[PDS] tagLoadNovels:', err);
+    tagShowError();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', tagLoadNovels);
+</script>
+</body>
+</html>
