@@ -419,13 +419,18 @@ function initCoverflow() {
 
   let current = 0, cfCards = [], cfAuto;
 
-  function timeAgo(ts) {
+    function timeAgo(ts) {
     if (!ts) return '';
     const d = Date.now() - ts, m = Math.floor(d / 60000);
     if (m < 1) return 'vừa cập nhật';
     if (m < 60) return `${m} phút trước`;
     const h = Math.floor(m / 60);
-    return h < 24 ? `${h} giờ trước` : `${Math.floor(h / 24)} ngày trước`;
+    if (h < 24) return `${h} giờ trước`;
+    const day = Math.floor(h / 24);
+    if (day < 30) return `${day} ngày trước`;
+    const mo = Math.floor(day / 30);
+    if (mo < 12) return `${mo} tháng trước`;
+    return `${Math.floor(day / 365)} năm trước`;
   }
 
   window.renderCoverflow = function () {
