@@ -303,7 +303,12 @@ function tchTimeAgo(ts){
   if(m<60) return m+' phút trước';
   const h = Math.floor(m/60);
   if(h<24) return h+' giờ trước';
-  return Math.floor(h/24)+' ngày trước';
+  const d = Math.floor(h/24);
+  if(d<30) return d+' ngày trước';
+  const mo = Math.floor(d/30);
+  if(mo<12) return mo+' tháng trước';
+  const y = Math.floor(d/365);
+  return y+' năm trước';
 }
 
 function tchParseNovel(novel){
