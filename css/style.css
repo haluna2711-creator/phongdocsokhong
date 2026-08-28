@@ -325,6 +325,61 @@ svg.cosmos-bg { position: absolute; inset: 0; width: 100% !important; height: 10
 /* ════════════════════════════════════
    LIBRARY / STARRY CAROUSEL
    ════════════════════════════════════ */
+/* ════════ ANNOUNCEMENT MARQUEE ════════ */
+.announcement-marquee {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 1400px;
+  margin: 32px auto 0;
+  padding: 0 24px;
+  height: 52px;
+}
+.marquee-icon {
+  flex: 0 0 auto;
+  color: var(--gold-light);
+  font-size: 13px;
+  opacity: .8;
+}
+.marquee-viewport {
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--gold-border);
+  border-bottom: 1px solid var(--gold-border);
+  background: rgba(17,17,17,.5);
+  border-radius: var(--radius);
+  mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+}
+.marquee-track {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: pdsMarqueeScroll linear infinite;
+  will-change: transform;
+}
+.announcement-marquee:hover .marquee-track { animation-play-state: paused; }
+.marquee-text {
+  font-family: 'Vollkorn', serif;
+  font-style: italic;
+  font-size: 14px;
+  letter-spacing: .02em;
+  color: var(--gold-light);
+  padding-right: 64px;
+}
+@keyframes pdsMarqueeScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@media (max-width: 768px) {
+  .announcement-marquee { margin-top: 20px; height: 44px; padding: 0 16px; }
+  .marquee-text { font-size: 12.5px; padding-right: 40px; }
+}
+
 .starry-section { padding: 72px 0 80px; }
 .starry-carousel-wrapper { position: relative; }
 .orb-track {
