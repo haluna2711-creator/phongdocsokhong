@@ -11,10 +11,15 @@
 <script src="/admin/admin-common.js"></script>
 <script>
 let GATE_OPEN = true;
+let ANNOUNCEMENT_TEXT = '';
 
 async function load() {
-  const { open } = await api('/api/auth-register?action=gate-status');
+  const [{ open }, ann] = await Promise.all([
+    api('/api/auth-register?action=gate-status'),
+    api('/api/auth-register?action=announcement-get'),
+  ]);
   GATE_OPEN = open;
+  ANNOUNCEMENT_TEXT = ann.text || '';
   render();
 }
 
@@ -40,9 +45,50 @@ function render() {
         </label>
       </div>
     </div>
+
+    <div class="card">
+      <h2>Dòng thông báo chạy (trang chủ)</h2>
+      <p class="hint" style="margin-bottom:16px">
+        Hiện dưới banner đầu trang, trên mục "Thư Viện Truyện Đọc Nhiều". Để trống rồi lưu sẽ ẩn dòng thông báo.
+      </p>
+      <textarea id="annInput" rows="3" maxlength="500"
+        placeholder="Ví dụ: Phòng Đọc Số 0 tạm bảo trì lúc 2h sáng ngày 30/08, mong lữ khách thông cảm..."
+        style="width:100%;box-sizing:border-box;background:var(--black-3);border:1px solid var(--gold-border);border-radius:var(--radius);color:var(--white);font-family:'EB Garamond',serif;font-size:15px;padding:12px 14px;resize:vertical;outline:none;">${escHtml(ANNOUNCEMENT_TEXT)}</textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+        <span class="hint" id="annCount">${ANNOUNCEMENT_TEXT.length}/500</span>
+        <button class="btn btn-gold" id="annSaveBtn">Lưu thông báo</button>
+      </div>
+    </div>
   `);
 
   document.getElementById('gateSwitch').addEventListener('change', onToggleGate);
+
+  const annInput = document.getElementById('annInput');
+  const annCount = document.getElementById('annCount');
+  annInput.addEventListener('input', () => {
+    annCount.textContent = `${annInput.value.length}/500`;
+  });
+  document.getElementById('annSaveBtn').addEventListener('click', onSaveAnnouncement);
+}
+
+async function onSaveAnnouncement() {
+  const btn = document.getElementById('annSaveBtn');
+  const text = document.getElementById('annInput').value.trim();
+  btn.disabled = true;
+  btn.textContent = 'Đang lưu...';
+  try {
+    const r = await api('/api/auth-register?action=announcement-set', {
+      method: 'POST',
+      body: { text },
+    });
+    ANNOUNCEMENT_TEXT = r.text || '';
+    toast(text ? 'Đã lưu thông báo' : 'Đã ẩn dòng thông báo', 'ok');
+  } catch (err) {
+    toast('Lỗi: ' + err.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Lưu thông báo';
+  }
 }
 
 async function onToggleGate(e) {
