@@ -359,7 +359,7 @@ svg.cosmos-bg { position: absolute; inset: 0; width: 100% !important; height: 10
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
-  animation: pdsMarqueeScroll linear infinite;
+  animation: pdsMarqueeScroll var(--marquee-duration, 25s) linear infinite;
   will-change: transform;
 }
 .announcement-marquee:hover .marquee-track { animation-play-state: paused; }
@@ -370,10 +370,11 @@ svg.cosmos-bg { position: absolute; inset: 0; width: 100% !important; height: 10
   letter-spacing: .02em;
   color: var(--gold-light);
   padding-right: 64px;
+  flex: 0 0 auto;
 }
 @keyframes pdsMarqueeScroll {
   from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  to   { transform: translateX(var(--marquee-shift, -50%)); }
 }
 @media (max-width: 768px) {
   .announcement-marquee { margin-top: 20px; height: 44px; padding: 0 16px; }
