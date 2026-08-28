@@ -161,11 +161,20 @@ async function initAnnouncement() {
     base.textContent = text;
     track.appendChild(base);
 
+    // QUAN TRỌNG: phải hiện khối ra TRƯỚC khi đo, vì phần tử đang
+    // display:none luôn có getBoundingClientRect().width = 0 → phép đo
+    // phía dưới sẽ luôn ra 0 và hàm return sớm, thông báo không bao giờ
+    // hiện. Dùng visibility:hidden thay vì display:none — phần tử vẫn
+    // được tính layout (đo được kích thước) nhưng không hiện ra mắt
+    // người dùng, tránh bị "nháy" hình khi vừa hiện đã có kích thước đúng.
+    wrap.style.visibility = 'hidden';
+    wrap.style.display = 'flex';
+
     // Đợi trình duyệt tính xong layout rồi mới đo, nếu không sẽ ra 0.
     requestAnimationFrame(() => {
       const blockWidth = base.getBoundingClientRect().width;
       const viewportWidth = viewport.getBoundingClientRect().width;
-      if (!blockWidth) return;
+      if (!blockWidth) { wrap.style.display = 'none'; wrap.style.visibility = ''; return; }
 
       // Nhân bản đủ để LÚC NÀO cũng phủ kín ít nhất 2 lần chiều rộng khung
       // nhìn — nếu thông báo ngắn hơn khung nhìn nhiều mà chỉ có 2 bản, sẽ
@@ -185,7 +194,7 @@ async function initAnnouncement() {
       const PX_PER_SEC = 55;
       track.style.setProperty('--marquee-shift', `-${blockWidth}px`);
       track.style.setProperty('--marquee-duration', `${blockWidth / PX_PER_SEC}s`);
-      wrap.style.display = 'flex';
+      wrap.style.visibility = '';
     });
   } catch (err) {
     console.error('Không tải được thông báo:', err);
