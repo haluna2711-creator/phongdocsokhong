@@ -150,15 +150,43 @@ async function initAnnouncement() {
     const text = (data && data.text ? String(data.text) : '').trim();
     if (!text) return; // giữ display:none mặc định
 
+    const viewport = wrap.querySelector('.marquee-viewport');
     const track = document.getElementById('marqueeTrack');
-    const spans = track.querySelectorAll('.marquee-text');
-    spans.forEach(s => { s.textContent = text; });
+    track.innerHTML = '';
 
-    // Tốc độ chạy tỉ lệ theo độ dài chữ để không quá nhanh/quá chậm
-    const duration = Math.min(90, Math.max(18, text.length * 0.35));
-    track.style.animationDuration = duration + 's';
+    // Tạo 1 khối gốc để đo độ rộng thật (kể cả padding-right = khoảng
+    // cách giữa các lượt lặp) trước khi tính toán số bản sao cần thiết.
+    const base = document.createElement('span');
+    base.className = 'marquee-text';
+    base.textContent = text;
+    track.appendChild(base);
 
-    wrap.style.display = 'flex';
+    // Đợi trình duyệt tính xong layout rồi mới đo, nếu không sẽ ra 0.
+    requestAnimationFrame(() => {
+      const blockWidth = base.getBoundingClientRect().width;
+      const viewportWidth = viewport.getBoundingClientRect().width;
+      if (!blockWidth) return;
+
+      // Nhân bản đủ để LÚC NÀO cũng phủ kín ít nhất 2 lần chiều rộng khung
+      // nhìn — nếu thông báo ngắn hơn khung nhìn nhiều mà chỉ có 2 bản, sẽ
+      // xuất hiện khoảng trắng lớn trước khi bản tiếp theo "nhảy" vào (lỗi
+      // trong ảnh chụp trước đó). Nhân đủ số lượng thì luôn có chữ nối tiếp
+      // liên tục, không đứt quãng dù thông báo dài hay ngắn.
+      const copiesNeeded = Math.max(2, Math.ceil((viewportWidth * 2) / blockWidth) + 1);
+      for (let i = 1; i < copiesNeeded; i++) {
+        track.appendChild(base.cloneNode(true));
+      }
+
+      // Dịch chuyển đúng bằng độ rộng 1 khối (đo bằng px thật) → khi lặp
+      // lại, khối tiếp theo luôn nằm khớp y hệt vị trí khối vừa trôi qua,
+      // không bị lệch/nhảy dù có bao nhiêu bản sao trong track.
+      // Tốc độ cố định theo px/giây để thông báo dài hay ngắn đều chạy
+      // với vận tốc như nhau (không bị chậm/nhanh bất thường).
+      const PX_PER_SEC = 55;
+      track.style.setProperty('--marquee-shift', `-${blockWidth}px`);
+      track.style.setProperty('--marquee-duration', `${blockWidth / PX_PER_SEC}s`);
+      wrap.style.display = 'flex';
+    });
   } catch (err) {
     console.error('Không tải được thông báo:', err);
   }
