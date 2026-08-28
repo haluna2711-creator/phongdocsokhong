@@ -137,6 +137,34 @@ function attachViewTracking() {
 }
 
 // ════════════════════════════════════
+// ANNOUNCEMENT MARQUEE
+// Nội dung do admin nhập ở /admin/settings.html, lưu trong Supabase
+// (bảng app_settings, key "announcement_text"). Nếu để trống thì ẩn.
+// ════════════════════════════════════
+async function initAnnouncement() {
+  const wrap = document.getElementById('announcementMarquee');
+  if (!wrap) return;
+  try {
+    const res = await fetch('/api/auth-register?action=announcement-get');
+    const data = await res.json();
+    const text = (data && data.text ? String(data.text) : '').trim();
+    if (!text) return; // giữ display:none mặc định
+
+    const track = document.getElementById('marqueeTrack');
+    const spans = track.querySelectorAll('.marquee-text');
+    spans.forEach(s => { s.textContent = text; });
+
+    // Tốc độ chạy tỉ lệ theo độ dài chữ để không quá nhanh/quá chậm
+    const duration = Math.min(90, Math.max(18, text.length * 0.35));
+    track.style.animationDuration = duration + 's';
+
+    wrap.style.display = 'flex';
+  } catch (err) {
+    console.error('Không tải được thông báo:', err);
+  }
+}
+
+// ════════════════════════════════════
 // BANNER SLIDESHOW
 // ════════════════════════════════════
 function initBanner() {
@@ -733,6 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initBTT();
   initFollow();
   initBanner();
+  initAnnouncement();
   initCarousel();
   initCoverflow();
   initGalaxyCanvas();
