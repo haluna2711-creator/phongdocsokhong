@@ -101,6 +101,16 @@
         } else if (d.reason === 'registration_closed') {
           errEl.className = 'pds-err-msg info';
           errEl.textContent = 'Email này chưa từng đăng ký và đăng ký mới hiện đang tạm khoá. Nếu bạn đã có mã, bấm "Đăng nhập" bên dưới.';
+        } else if (d.reason === 'disposable_email') {
+          errEl.textContent = 'Vui lòng dùng email chính chủ, không dùng email tạm thời/dùng 1 lần.';
+          regEmailEl.classList.add('err');
+        } else if (d.reason === 'domain_not_found') {
+          errEl.textContent = 'Không tìm thấy tên miền email này. Vui lòng kiểm tra lại chính tả.';
+          regEmailEl.classList.add('err');
+        } else if (d.reason === 'rate_limited_email') {
+          errEl.textContent = 'Email này vừa được gửi mã gần đây. Vui lòng kiểm tra hộp thư (kể cả Thư Rác) hoặc thử lại sau.';
+        } else if (d.reason === 'rate_limited_ip') {
+          errEl.textContent = 'Bạn đã yêu cầu quá nhiều lần. Vui lòng thử lại sau ít phút.';
         } else {
           errEl.textContent = 'Có lỗi xảy ra. Vui lòng thử lại.';
           regEmailEl.classList.add('err');
