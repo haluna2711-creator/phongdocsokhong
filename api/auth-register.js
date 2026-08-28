@@ -4,7 +4,9 @@
 //                       GET /api/auth-register?action=verify&email=...&code=...
 //                       GET /api/auth-register?action=gate-status   (public)
 // Dùng bởi admin/settings.html:
-//                       GET /api/auth-register?action=gate-set&open=true|false  (chỉ admin)
+//                       GET  /api/auth-register?action=gate-set&open=true|false  (chỉ admin)
+//                       GET  /api/auth-register?action=announcement-get          (public)
+//                       POST /api/auth-register?action=announcement-set  body:{text} (chỉ admin)
 //
 // LƯU Ý: các action gate-status/gate-set được gộp CHUNG vào file này (thay vì
 // tạo file api/registration-gate.js riêng) để không vượt quá giới hạn 12
@@ -105,6 +107,36 @@ module.exports = async function handler(req, res) {
         );
       if (error) return res.status(500).json({ ok: false, reason: error.message });
       return res.status(200).json({ ok: true, open });
+    }
+
+    // ── Dòng thông báo chạy (marquee) trên trang chủ: public, không cần đăng nhập ──
+    // Gọi bởi js/app.js (initAnnouncement) để lấy nội dung admin đã nhập.
+    if (action === 'announcement-get') {
+      const { data, error } = await db
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'announcement_text')
+        .maybeSingle();
+      if (error) return res.status(200).json({ ok: true, text: '' });
+      const text = data && typeof data.value === 'string' ? data.value : '';
+      return res.status(200).json({ ok: true, text });
+    }
+
+    // ── Cập nhật nội dung dòng thông báo: CHỈ admin ──
+    // Gọi bởi admin/settings.html. Dùng POST + body { text } để tránh giới
+    // hạn độ dài query string nếu admin nhập thông báo dài.
+    if (action === 'announcement-set') {
+      if (!requireAdmin(req, res)) return;
+      const body = req.body || {};
+      const text = String(body.text || '').trim().slice(0, 500);
+      const { error } = await db
+        .from('app_settings')
+        .upsert(
+          { key: 'announcement_text', value: text, updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+      if (error) return res.status(500).json({ ok: false, reason: error.message });
+      return res.status(200).json({ ok: true, text });
     }
 
     const email = String(req.query.email || '').trim().toLowerCase();
