@@ -32,6 +32,15 @@
 
 const { getSupabaseAdmin } = require('./_lib/supabaseAdmin');
 const { requireAdmin } = require('./_lib/auth');
+const {
+  isValidEmailFormat,
+  getDomain,
+  isDisposableDomain,
+  domainCanReceiveMail,
+  getClientIp,
+  checkRateLimit,
+  recordSend,
+} = require('./_lib/emailGuard');
 
 // Bỏ các ký tự dễ nhầm lẫn khi đọc mã qua email (0/O, 1/I).
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -141,7 +150,9 @@ module.exports = async function handler(req, res) {
 
     const email = String(req.query.email || '').trim().toLowerCase();
 
-    if (!email || email.indexOf('@') < 1) {
+    // Check định dạng CHẶT (không chỉ "có dấu @"). Áp dụng cho mọi action
+    // dùng email (register + verify) để tránh truy vấn DB với rác đầu vào.
+    if (!email || !isValidEmailFormat(email)) {
       return res.status(200).json({ ok: false, reason: 'invalid_email' });
     }
 
@@ -179,6 +190,29 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ ok: false, reason: 'registration_closed' });
       }
 
+      // ── Chặn gửi email "vô tội vạ" ──
+      // 1) Email rác / dùng 1 lần (mailinator, 10minutemail, yopmail, ...):
+      //    không phải chủ nhân thật, không có giá trị để liên hệ lâu dài.
+      const domain = getDomain(email);
+      if (isDisposableDomain(domain)) {
+        return res.status(200).json({ ok: false, reason: 'disposable_email' });
+      }
+
+      // 2) Domain không tồn tại / không nhận được mail (không có MX/A/AAAA):
+      //    chặn trước khi tốn 1 lượt gửi mail chắc chắn bounce.
+      const canReceive = await domainCanReceiveMail(domain);
+      if (!canReceive) {
+        return res.status(200).json({ ok: false, reason: 'domain_not_found' });
+      }
+
+      // 3) Rate limit theo email cụ thể + theo IP nguồn: chặn "bom mail" 1
+      //    hộp thư hoặc script tự động thử hàng loạt email khác nhau.
+      const ip = getClientIp(req);
+      const rl = await checkRateLimit(db, email, ip);
+      if (!rl.allowed) {
+        return res.status(200).json({ ok: false, reason: rl.reason });
+      }
+
       const code = genCode();
       const { error: insErr } = await db
         .from('readers')
@@ -187,6 +221,7 @@ module.exports = async function handler(req, res) {
 
       try {
         await sendCodeEmail(email, code);
+        await recordSend(db, email, ip);
       } catch (mailErr) {
         // Đã lưu email+mã ở DB nhưng gửi mail thất bại — báo lỗi rõ ràng
         // thay vì để front-end hiểu nhầm là lỗi mạng.
