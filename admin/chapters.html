@@ -59,6 +59,50 @@ function extractNum(title) {
   return n ? parseInt(n[0]) : null;
 }
 
+/* ─── Phát hiện chương trùng để THAY THẾ thay vì tạo mới ─── */
+let autoReplace = true; // tự động chọn "thay thế" khi tìm thấy đúng 1 chương trùng
+
+function normTitle(s) { return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+
+// Chương đã có mà file này có thể thay thế: trùng TÊN, hoặc trùng SỐ chương trong tên
+// (nếu có nhập Quyển thì chỉ xét chương cùng quyển).
+function findCandidates(d) {
+  const vol = (currentVolume || '').trim();
+  const sameVol = c => !vol || (c.volume || '') === vol;
+  const t = normTitle(d.title);
+  const byTitle = EXISTING.filter(c => normTitle(c.title) === t && sameVol(c));
+  if (byTitle.length) return byTitle;
+  if (d.num == null) return [];
+  return EXISTING.filter(c => extractNum(c.title) === d.num && sameVol(c));
+}
+
+// 'new' = tạo chương mới, ngược lại = id chương sẽ bị thay thế
+function resolveTarget(d) {
+  if (d.target !== undefined) return d.target; // người dùng đã chọn tay
+  if (!autoReplace) return 'new';
+  const c = findCandidates(d);
+  return c.length === 1 ? c[0].id : 'new';
+}
+
+function targetSelectHtml(d) {
+  const cands = findCandidates(d);
+  const target = resolveTarget(d);
+  const note = (cands.length > 1 && target === 'new') ? ' (trùng nhiều chương — chọn tay)' : '';
+  return `<select class="det-target" style="max-width:250px;flex-shrink:0">
+    <option value="new" ${target === 'new' ? 'selected' : ''}>＋ Tạo chương mới${note}</option>
+    ${cands.map(c => `<option value="${c.id}" ${target === c.id ? 'selected' : ''}>↻ Thay thế #${c.chapter_number} — ${escHtml(c.title)}</option>`).join('')}
+  </select>`;
+}
+
+function submitLabel() {
+  const rep = DETECTED.filter(d => resolveTarget(d) !== 'new').length;
+  const n = DETECTED.length - rep;
+  const parts = [];
+  if (n) parts.push(publishMode === 'draft' ? `Lưu nháp ${n} chương mới` : publishMode === 'publish_now' ? `Đăng ngay ${n} chương mới` : `Lên lịch ${n} chương mới`);
+  if (rep) parts.push(`thay thế ${rep} chương`);
+  return parts.join(' + ');
+}
+
 /* ─── Parse 1 file .docx thành {title, content} ─── */
 async function parseDocx(file) {
   const buf = await file.arrayBuffer();
@@ -128,7 +172,10 @@ function renderDetectedCard() {
   return `
     <div class="card">
       <h2>2. Chương đã nhận diện (${DETECTED.length})</h2>
-      <p class="hint" style="margin-bottom:12px">Sắp xếp theo đúng thứ tự muốn đăng. Có thể sửa tên chương trước khi lưu.</p>
+      <p class="hint" style="margin-bottom:12px">Sắp xếp theo đúng thứ tự muốn đăng. Có thể sửa tên chương trước khi lưu. Chương nào trùng tên hoặc trùng số với chương đã có sẽ được đề xuất <b>thay thế nội dung</b> (giữ nguyên link và trạng thái đăng); bạn có thể đổi lại ở ô bên phải tên chương.</p>
+      <label style="display:inline-flex;align-items:center;gap:6px;text-transform:none;font-size:13.5px;margin-bottom:14px">
+        <input type="checkbox" id="autoReplaceChk" style="width:auto" ${autoReplace ? 'checked' : ''}/> Tự động thay thế chương trùng (đã có trên trang)
+      </label>
       <div class="field" style="max-width:420px;margin-bottom:16px">
         <label>Quyển (tuỳ chọn — áp dụng cho cả ${DETECTED.length} chương này)</label>
         <input type="text" id="volumeInput" value="${escHtml(currentVolume)}" placeholder="VD: Quyển 1: Săn Ma"/>
@@ -138,6 +185,7 @@ function renderDetectedCard() {
           <div class="det-item" data-idx="${i}">
             <span class="num mono">#${i+1}</span>
             <input type="text" class="det-title" value="${escHtml(d.title)}"/>
+            ${targetSelectHtml(d)}
             <span class="meta">${d.content.length} ký tự</span>
             <div class="actions">
               <button class="icon-btn" data-up="${i}" title="Lên">↑</button>
@@ -198,7 +246,7 @@ function renderScheduleCard() {
 
       <div style="margin-top:16px">
         <button class="btn btn-gold" id="submitBtn">
-          ${publishMode === 'draft' ? 'Lưu nháp' : publishMode === 'publish_now' ? `Đăng ngay ${DETECTED.length} chương` : `Lên lịch ${DETECTED.length} chương`}
+          ${submitLabel()}
         </button>
       </div>
     </div>`;
@@ -309,13 +357,34 @@ function bindInteractivity() {
   }
 
   const volInput = document.getElementById('volumeInput');
-  if (volInput) volInput.addEventListener('input', e => { currentVolume = e.target.value; });
+  if (volInput) {
+    volInput.addEventListener('input', e => { currentVolume = e.target.value; });
+    volInput.addEventListener('change', () => render()); // quyển đổi → tính lại chương trùng
+  }
 
   document.querySelectorAll('.det-title').forEach(inp => {
     inp.addEventListener('input', e => {
       const idx = e.target.closest('.det-item').dataset.idx;
       DETECTED[idx].title = e.target.value;
     });
+    inp.addEventListener('change', e => {
+      const d = DETECTED[e.target.closest('.det-item').dataset.idx];
+      d.num = extractNum(d.title);
+      d.target = undefined; // tên đổi → tính lại chương trùng
+      render();
+    });
+  });
+  document.querySelectorAll('.det-target').forEach(sel => {
+    sel.addEventListener('change', e => {
+      DETECTED[e.target.closest('.det-item').dataset.idx].target = e.target.value;
+      render();
+    });
+  });
+  const autoChk = document.getElementById('autoReplaceChk');
+  if (autoChk) autoChk.addEventListener('change', e => {
+    autoReplace = e.target.checked;
+    DETECTED.forEach(d => { d.target = undefined; });
+    render();
   });
   document.querySelectorAll('[data-up]').forEach(b => b.addEventListener('click', () => moveDetected(+b.dataset.up, -1)));
   document.querySelectorAll('[data-down]').forEach(b => b.addEventListener('click', () => moveDetected(+b.dataset.down, 1)));
@@ -405,10 +474,17 @@ function moveDetected(idx, dir) {
 
 async function submitBulk() {
   if (!DETECTED.length) return;
+  const targets = DETECTED.map(resolveTarget);
+  const used = targets.filter(t => t !== 'new');
+  if (new Set(used).size !== used.length) { toast('Có 2 file cùng thay thế một chương — hãy chọn lại ở ô bên phải tên chương', 'err'); return; }
+  if (used.length && !confirm(`${used.length} chương đã có sẽ bị GHI ĐÈ nội dung cũ bằng file mới. Tiếp tục?`)) return;
   const body = {
     novel_id: selectedNovelId,
     mode: publishMode,
-    chapters: DETECTED.map(d => ({ title: d.title, content: d.content, volume: currentVolume || undefined })),
+    chapters: DETECTED.map((d, i) => ({
+      title: d.title, content: d.content, volume: currentVolume || undefined,
+      replace_id: targets[i] !== 'new' ? targets[i] : undefined,
+    })),
   };
   if (publishMode === 'scheduled') {
     if (!scheduleDays.length) { toast('Chọn ít nhất 1 ngày trong tuần', 'err'); return; }
@@ -424,8 +500,8 @@ async function submitBulk() {
   const btn = document.getElementById('submitBtn');
   btn.disabled = true; btn.textContent = 'Đang lưu...';
   try {
-    const { chapters } = await api('/api/chapters-bulk', { method: 'POST', body });
-    toast(`Đã lưu ${chapters.length} chương`, 'ok');
+    const { chapters, replaced } = await api('/api/chapters-bulk', { method: 'POST', body });
+    toast(`Đã tạo ${chapters.length} chương mới, thay thế ${(replaced || []).length} chương`, 'ok');
     DETECTED = [];
     await loadExisting();
     render();
