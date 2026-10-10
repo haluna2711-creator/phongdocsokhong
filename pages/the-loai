@@ -327,20 +327,23 @@ function tagSlugify(s){
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 }
 
-function tagParseNovel(novel){
-  const labels     = novel.novel_labels || [];
+  // Sắp theo position (0 = chính, sau đó là phụ); cùng position → ưu tiên thể loại có trong TAG_GENRE_MAP
+  const labels = (novel.novel_labels || []).slice().sort((a, b) =>
+    ((a.position || 0) - (b.position || 0)) ||
+    ((TAG_GENRE_MAP[a.labels?.name] ? 0 : 1) - (TAG_GENRE_MAP[b.labels?.name] ? 0 : 1)));
   const labelSlugs = labels.map(nl => nl.labels?.slug).filter(Boolean);
   const labelNames = labels.map(nl => nl.labels?.name).filter(Boolean);
 
   if(!labelSlugs.includes(TAG_DAM_MY_SLUG)) return null;
 
   const genreLabels = labelNames.filter((_, i) => labelSlugs[i] !== TAG_DAM_MY_SLUG);
-  const genre = genreLabels.find(l => TAG_GENRE_MAP[l]) || genreLabels[0] || 'Khác';
+    const genre  = genreLabels[0] || 'Khác';                    // thể loại CHÍNH
+  const genres = genreLabels.length ? genreLabels : ['Khác']; // chính + phụ
   const bg = (window.PDS_CONFIG && PDS_CONFIG.GENRE_BG && PDS_CONFIG.GENRE_BG[genre]) || (window.PDS_CONFIG && PDS_CONFIG.GENRE_BG['default']) || 'linear-gradient(145deg,#111111,#1a1a1a)';
 
   return {
     title: novel.title || 'Không có tiêu đề',
-    genre, bg,
+        genre, genres, bg,
     cover: novel.cover_url || '',
     readUrl: `/post/${novel.slug}`,
     desc: (novel.description || '').slice(0, 160),
@@ -380,7 +383,8 @@ function tagRenderSections(stories){
   if(!stories.length){ tagShowEmpty(); return; }
 
   const groups = {};
-  stories.forEach(s => { (groups[s.genre] = groups[s.genre] || []).push(s); });
+    // Truyện xuất hiện trong mục của cả thể loại chính lẫn các thể loại phụ
+  stories.forEach(s => (s.genres || [s.genre]).forEach(g => { (groups[g] = groups[g] || []).push(s); }));
   const genres = Object.keys(groups).sort((a, b) => {
     const va = groups[a].reduce((sum, x) => sum + x.viewsTotal, 0);
     const vb = groups[b].reduce((sum, x) => sum + x.viewsTotal, 0);
