@@ -21,13 +21,39 @@ async function load() {
   render();
 }
 
+// Thứ tự trong mảng = ưu tiên: phần tử đầu = CHÍNH, các phần tử sau = phụ
+let selectedLabels = [];
+
 function labelIdsOf(novel) {
-  return (novel.novel_labels || []).map(nl => nl.label_id);
+  return (novel.novel_labels || [])
+    .slice()
+    .sort((a, b) => (a.position || 0) - (b.position || 0))
+    .map(nl => nl.label_id);
+}
+
+function chipsHtml() {
+  if (!LABELS.length) return '<span class="hint">Chưa có thể loại — tạo ở trang Thể loại.</span>';
+  return LABELS.map(l => {
+    const idx = selectedLabels.indexOf(l.id);
+    const badge = idx < 0 ? '' : (idx === 0 ? '<b>★ Chính</b> ' : `<b>${idx + 1}</b> `);
+    return `<span class="chip-toggle ${idx >= 0 ? 'active' : ''}" data-id="${l.id}">${badge}${escHtml(l.name)}</span>`;
+  }).join('');
+}
+
+function bindChips() {
+  document.querySelectorAll('#labelChips .chip-toggle').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const id = chip.dataset.id;
+      const i = selectedLabels.indexOf(id);
+      if (i >= 0) selectedLabels.splice(i, 1); else selectedLabels.push(id);
+      document.getElementById('labelChips').innerHTML = chipsHtml();
+      bindChips();
+    });
+  });
 }
 
 function formHtml(novel) {
   const v = novel || {};
-  const selected = novel ? labelIdsOf(novel) : [];
   return `
     <div class="card">
       <h2>${novel ? 'Sửa truyện' : 'Thêm truyện mới'}</h2>
@@ -50,9 +76,8 @@ function formHtml(novel) {
       <div class="field"><label>Tags (cách nhau bằng dấu phẩy)</label><input type="text" id="fTags" value="${escHtml((v.tags||[]).join(', '))}"/></div>
       <div class="field">
         <label>Thể loại</label>
-        <div class="checkbox-row" id="labelChips">
-          ${LABELS.map(l => `<span class="chip-toggle ${selected.includes(l.id)?'active':''}" data-id="${l.id}">${escHtml(l.name)}</span>`).join('') || '<span class="hint">Chưa có thể loại — tạo ở trang Thể loại.</span>'}
-        </div>
+                <div class="checkbox-row" id="labelChips">${chipsHtml()}</div>
+        <div class="hint" style="margin-top:6px">Bấm theo thứ tự ưu tiên: thể loại bấm đầu tiên là <b>chính</b>, các thể loại sau là <b>phụ</b> (chọn bao nhiêu cũng được). Muốn đổi thể loại chính: bỏ chọn rồi chọn lại theo đúng thứ tự.</div>
       </div>
       <div class="field">
         <label style="display:inline-flex;align-items:center;gap:6px;text-transform:none;font-size:14px">
