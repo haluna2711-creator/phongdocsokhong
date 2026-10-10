@@ -31,12 +31,29 @@ function labelIdsOf(novel) {
     .map(nl => nl.label_id);
 }
 
+const DAM_MY_SLUG = 'dam-my'; // nhãn mặc định của cả site — KHÔNG tính vào chính/phụ
+
+function isDamMy(id) {
+  const l = LABELS.find(x => x.id === id);
+  return !!l && l.slug === DAM_MY_SLUG;
+}
+
+// Thể loại (không gồm Đam Mỹ) theo thứ tự bấm, rồi Đam Mỹ để cuối
+function orderedLabelIds() {
+  return [...selectedLabels.filter(id => !isDamMy(id)), ...selectedLabels.filter(isDamMy)];
+}
+
 function chipsHtml() {
   if (!LABELS.length) return '<span class="hint">Chưa có thể loại — tạo ở trang Thể loại.</span>';
+  const genreOrder = selectedLabels.filter(id => !isDamMy(id));
   return LABELS.map(l => {
-    const idx = selectedLabels.indexOf(l.id);
-    const badge = idx < 0 ? '' : (idx === 0 ? '<b>★ Chính</b> ' : `<b>${idx + 1}</b> `);
-    return `<span class="chip-toggle ${idx >= 0 ? 'active' : ''}" data-id="${l.id}">${badge}${escHtml(l.name)}</span>`;
+    const on = selectedLabels.includes(l.id);
+    let badge = '';
+    if (on && l.slug !== DAM_MY_SLUG) {
+      const idx = genreOrder.indexOf(l.id);
+      badge = idx === 0 ? '<b>★ Chính</b> ' : `<b>${idx + 1}</b> `;
+    }
+    return `<span class="chip-toggle ${on ? 'active' : ''}" data-id="${l.id}">${badge}${escHtml(l.name)}</span>`;
   }).join('');
 }
 
@@ -77,7 +94,7 @@ function formHtml(novel) {
       <div class="field">
         <label>Thể loại</label>
                 <div class="checkbox-row" id="labelChips">${chipsHtml()}</div>
-        <div class="hint" style="margin-top:6px">Bấm theo thứ tự ưu tiên: thể loại bấm đầu tiên là <b>chính</b>, các thể loại sau là <b>phụ</b> (chọn bao nhiêu cũng được). Muốn đổi thể loại chính: bỏ chọn rồi chọn lại theo đúng thứ tự.</div>
+        <div class="hint" style="margin-top:6px">Đam Mỹ là nhãn mặc định, không tính thứ tự. Với các thể loại còn lại, bấm theo thứ tự ưu tiên: thể loại bấm đầu tiên là <b>chính</b>, các thể loại sau là <b>phụ</b> (chọn bao nhiêu cũng được). Muốn đổi thể loại chính: bỏ chọn rồi chọn lại theo đúng thứ tự.</div>
       </div>
       <div class="field">
         <label style="display:inline-flex;align-items:center;gap:6px;text-transform:none;font-size:14px">
@@ -93,7 +110,8 @@ function formHtml(novel) {
 
 function render() {
     const editingNovel = editingId && editingId !== 'new' ? NOVELS.find(n => n.id === editingId) : null;
-  selectedLabels = editingNovel ? labelIdsOf(editingNovel) : [];
+    // Truyện mới: tự bật sẵn Đam Mỹ (mặc định của site)
+  selectedLabels = editingNovel ? labelIdsOf(editingNovel) : LABELS.filter(l => l.slug === DAM_MY_SLUG).map(l => l.id);
 
   mountShell('novels', `
     <div class="page-head">
@@ -153,7 +171,7 @@ async function saveNovel() {
     description: document.getElementById('fDesc').value,
     tags: document.getElementById('fTags').value.split(',').map(s => s.trim()).filter(Boolean),
     published: document.getElementById('fPublished').checked,
-    label_ids: selectedLabels.slice(),
+        label_ids: orderedLabelIds(),
   };
   if (!body.title) { toast('Vui lòng nhập tiêu đề', 'err'); return; }
 
