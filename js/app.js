@@ -388,7 +388,7 @@ function renderLibrary() {
 
   const grouped = getLibraryGroupedByGenre();
   let filtered = activeFilter === 'all'
-       ? [...new Map(Object.values(grouped).flat().map(b => [b.id, b])).values()].sort(((a, b) => (b.viewsTotal - a.viewsTotal) || (b.updatedAt || 0) - (a.updatedAt || 0))
+           ? [...new Map(Object.values(grouped).flat().map(b => [b.id, b])).values()].sort((a, b) => (b.viewsTotal - a.viewsTotal) || (b.updatedAt || 0) - (a.updatedAt || 0))
     : (grouped[activeFilter] || []);
   container.innerHTML = '';
 
