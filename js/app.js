@@ -29,7 +29,10 @@ const GENRE_MAP = {
 const DAM_MY_SLUG = 'dam-my'; // slug của label "Đam Mỹ" — cổng vào mục Thư Viện Truyện
 
 function parseNovel(novel) {
-  const labels     = novel.novel_labels || [];
+    // Sắp theo position (0 = chính). Cùng position (truyện cũ) → ưu tiên thể loại có trong GENRE_MAP.
+  const labels = (novel.novel_labels || []).slice().sort((a, b) =>
+    ((a.position || 0) - (b.position || 0)) ||
+    ((GENRE_MAP[a.labels?.name] ? 0 : 1) - (GENRE_MAP[b.labels?.name] ? 0 : 1)));
   const labelSlugs = labels.map(nl => nl.labels?.slug).filter(Boolean);
   const labelNames = labels.map(nl => nl.labels?.name).filter(Boolean);
 
@@ -38,7 +41,8 @@ function parseNovel(novel) {
 
   // Thể loại hiển thị = label không phải Đam Mỹ (ưu tiên các thể loại đã biết trong GENRE_MAP).
   const genreLabels = labelNames.filter((_, i) => labelSlugs[i] !== DAM_MY_SLUG);
-  const genre = genreLabels.find(l => GENRE_MAP[l]) || genreLabels[0] || 'Khác';
+    const genre  = genreLabels[0] || 'Khác';                    // thể loại CHÍNH
+  const genres = genreLabels.length ? genreLabels : ['Khác']; // chính + phụ
 
   const readUrl = `/post/${novel.slug}`;
   const bg      = PDS_CONFIG.GENRE_BG[genre] || PDS_CONFIG.GENRE_BG['default'];
@@ -50,7 +54,8 @@ function parseNovel(novel) {
     id: readUrl,
     dbId: novel.id,
     title: novel.title,
-    genre,
+        genre,
+    genres,
     cover: novel.cover_url || '',
     readUrl,
     chapter: novel.chapter_count ? `Ch.${novel.chapter_count}` : '',
@@ -366,7 +371,7 @@ const MAX_FILTER_TAGS = 6;
 function getLibraryGroupedByGenre() {
   const inLib = libraryBooks.filter(b => b.inLibrary);
   const groups = {};
-  inLib.forEach(b => { (groups[b.genre] = groups[b.genre] || []).push(b); });
+    inLib.forEach(b => (b.genres || [b.genre]).forEach(g => { (groups[g] = groups[g] || []).push(b); }));
   Object.keys(groups).forEach(g => {
     groups[g] = groups[g]
       .sort((a, b) => (b.viewsTotal - a.viewsTotal) || (b.updatedAt || 0) - (a.updatedAt || 0))
@@ -383,7 +388,7 @@ function renderLibrary() {
 
   const grouped = getLibraryGroupedByGenre();
   let filtered = activeFilter === 'all'
-    ? Object.values(grouped).flat().sort((a, b) => (b.viewsTotal - a.viewsTotal) || (b.updatedAt || 0) - (a.updatedAt || 0))
+       ? [...new Map(Object.values(grouped).flat().map(b => [b.id, b])).values()].sort(((a, b) => (b.viewsTotal - a.viewsTotal) || (b.updatedAt || 0) - (a.updatedAt || 0))
     : (grouped[activeFilter] || []);
   container.innerHTML = '';
 
@@ -411,7 +416,7 @@ function renderFilterBar() {
 
   // Sắp thể loại theo tổng lượt đọc giảm dần — tag "hot" nhất hiện trước.
   const viewsByGenre = {};
-  inLib.forEach(b => { viewsByGenre[b.genre] = (viewsByGenre[b.genre] || 0) + (b.viewsTotal || 0); });
+    inLib.forEach(b => (b.genres || [b.genre]).forEach(g => { viewsByGenre[g] = (viewsByGenre[g] || 0) + (b.viewsTotal || 0); }));
   const genres = Object.keys(viewsByGenre).sort((a, b) => viewsByGenre[b] - viewsByGenre[a]);
 
   const visibleGenres = genres.slice(0, MAX_FILTER_TAGS);
