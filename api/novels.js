@@ -131,7 +131,7 @@ module.exports = async function handler(req, res) {
     if (Array.isArray(b.label_ids)) {
       await db.from('novel_labels').delete().eq('novel_id', id);
       if (b.label_ids.length) {
-        await db.from('novel_labels').insert([...new Set(b.label_ids)].map((label_id, position) => ({ novel_id: id, label_id, position }));
+              await db.from('novel_labels').insert([...new Set(b.label_ids)].map((label_id, position) => ({ novel_id: id, label_id, position })));
       }
     }
     return res.status(200).json({ ok: true, novel: data });
