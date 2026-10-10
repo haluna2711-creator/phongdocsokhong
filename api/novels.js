@@ -22,7 +22,7 @@ module.exports = async function handler(req, res) {
     // để hiện tiêu đề/mục lục, KHÔNG cần đếm chapter_count / view_count (2 query
     // phụ tốn thời gian). Giúp mở chương nhanh hơn đáng kể.
     const isLight = light === '1' && !admin;
-    const fields = isLight ? 'id, slug, title, cover_url' : '*, novel_labels(label_id, labels(id,name,slug))';
+    const fields = isLight ? 'id, slug, title, cover_url' : '*, novel_labels(label_id, position, labels(id,name,slug))';
 
     let query = db.from('novels').select(fields);
     if (!admin) query = query.eq('published', true);
@@ -31,7 +31,12 @@ module.exports = async function handler(req, res) {
     query = query.order('created_at', { ascending: false });
 
     const { data, error } = await query;
-    if (error) return res.status(500).json({ ok: false, reason: error.message });
+        if (error) return res.status(500).json({ ok: false, reason: error.message });
+
+    // position 0 = thể loại CHÍNH, các số sau = phụ
+    (data || []).forEach((n) => {
+      if (Array.isArray(n.novel_labels)) n.novel_labels.sort((a, b) => (a.position || 0) - (b.position || 0));
+    });
 
     if (!isLight && data && data.length) {
       const novelIds = data.map((n) => n.id);
