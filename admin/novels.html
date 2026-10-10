@@ -92,7 +92,8 @@ function formHtml(novel) {
 }
 
 function render() {
-  const editingNovel = editingId && editingId !== 'new' ? NOVELS.find(n => n.id === editingId) : null;
+    const editingNovel = editingId && editingId !== 'new' ? NOVELS.find(n => n.id === editingId) : null;
+  selectedLabels = editingNovel ? labelIdsOf(editingNovel) : [];
 
   mountShell('novels', `
     <div class="page-head">
@@ -133,9 +134,7 @@ function render() {
   document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => { editingId = b.dataset.edit; render(); }));
   document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => delNovel(b.dataset.del)));
 
-  document.querySelectorAll('.chip-toggle').forEach(chip => {
-    chip.addEventListener('click', () => chip.classList.toggle('active'));
-  });
+    bindChips();
 
   const saveBtn = document.getElementById('saveNovelBtn');
   if (saveBtn) saveBtn.addEventListener('click', saveNovel);
@@ -154,7 +153,7 @@ async function saveNovel() {
     description: document.getElementById('fDesc').value,
     tags: document.getElementById('fTags').value.split(',').map(s => s.trim()).filter(Boolean),
     published: document.getElementById('fPublished').checked,
-    label_ids: Array.from(document.querySelectorAll('.chip-toggle.active')).map(c => c.dataset.id),
+    label_ids: selectedLabels.slice(),
   };
   if (!body.title) { toast('Vui lòng nhập tiêu đề', 'err'); return; }
 
