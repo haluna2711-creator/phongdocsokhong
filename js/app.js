@@ -726,7 +726,7 @@ function initSearch() {
   function highlight(text, q) { return text.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<span class="search-hl">$1</span>'); }
   function runSearch(raw) {
     const q = raw.trim().toLowerCase(); if (!q) { showState('hint'); return; }
-    const hits = libraryBooks.filter(b => b.inLibrary && (b.title.toLowerCase().includes(q) || b.genre.toLowerCase().includes(q)));
+    const hits = libraryBooks.filter(b => b.inLibrary && (b.title.toLowerCase().includes(q) || (b.genres || [b.genre]).some(g => g.toLowerCase().includes(q))));
     if (!hits.length) { document.getElementById('searchNfQuery').textContent = `"${raw.trim()}"`; showState('notfound'); return; }
     results.innerHTML = '';
     let c = document.getElementById('searchCount');
