@@ -28,6 +28,63 @@ let editingChapter = null; // {id, title, content, volume, chapter_number, loadi
 
 const DAY_LABELS = ['CN','T2','T3','T4','T5','T6','T7'];
 
+/* ─── Tạm dừng / khởi động lại lịch đăng ───
+   Chương đang 'scheduled' → bấm Tạm dừng → chuyển sang 'paused' (cron không đăng nữa).
+   Bấm Khởi động lại → tính lại toàn bộ mốc đăng từ thời điểm hiện tại theo
+   các ngày/giờ đã cài, rồi chuyển 'paused' → 'scheduled'. */
+const TZ_OFFSET = { 'Asia/Bangkok': 7, 'Asia/Ho_Chi_Minh': 7, 'Asia/Shanghai': 8, 'UTC': 0 }; // không có DST
+let resumeCfg = null; // {days, time, timezone, perSlot} — cấu hình dùng khi khởi động lại
+
+const cfgKey = () => 'scheduleCfg:' + selectedNovelId;
+function saveScheduleCfg(cfg) { try { localStorage.setItem(cfgKey(), JSON.stringify(cfg)); } catch (e) {} }
+function loadScheduleCfg() { try { return JSON.parse(localStorage.getItem(cfgKey()) || 'null'); } catch (e) { return null; } }
+
+const pad2 = n => String(n).padStart(2, '0');
+function tzParts(ms, tz) {
+  const d = new Date(ms + (TZ_OFFSET[tz] ?? 7) * 3600000);
+  return { dow: d.getUTCDay(), hm: pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes()) };
+}
+
+// Đoán cấu hình lịch từ các mốc scheduled_at đang có (dự phòng khi chưa lưu cấu hình)
+function inferScheduleCfg(list) {
+  const tz = 'Asia/Bangkok';
+  const times = list.map(c => new Date(c.scheduled_at).getTime()).filter(n => !isNaN(n));
+  if (!times.length) return null;
+  const days = new Set(), hmCount = {}, slotCount = {};
+  times.forEach(t => {
+    const p = tzParts(t, tz);
+    days.add(p.dow);
+    hmCount[p.hm] = (hmCount[p.hm] || 0) + 1;
+    slotCount[t] = (slotCount[t] || 0) + 1;
+  });
+  return {
+    days: [...days].sort(),
+    time: Object.entries(hmCount).sort((a, b) => b[1] - a[1])[0][0],
+    timezone: tz,
+    perSlot: Math.max(...Object.values(slotCount)),
+  };
+}
+
+// Sinh `count` mốc đăng (ISO) kể từ bây giờ theo cấu hình
+function computeSlotTimes(count, cfg) {
+  const off = (TZ_OFFSET[cfg.timezone] ?? 7) * 3600000;
+  const [hh, mm] = (cfg.time || '17:00').split(':').map(Number);
+  const now = Date.now();
+  const local = new Date(now + off);
+  let dayStart = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
+  const out = [];
+  for (let guard = 0; out.length < count && guard < 4000; guard++, dayStart += 86400000) {
+    const dow = new Date(dayStart).getUTCDay();
+    const slotMs = dayStart + (hh * 60 + mm) * 60000 - off;
+    if (cfg.days.includes(dow) && slotMs > now) {
+      for (let k = 0; k < cfg.perSlot && out.length < count; k++) out.push(new Date(slotMs).toISOString());
+    }
+  }
+  return out;
+}
+
+const byChapterNo = (a, b) => Number(a.chapter_number) - Number(b.chapter_number);
+
 async function load() {
   // Nếu URL đã có ?novel=id (vd. bấm từ trang Truyện) thì gọi song song
   // /api/novels và /api/chapters ngay từ đầu thay vì chờ /api/novels xong
@@ -117,7 +174,7 @@ async function parseDocx(file) {
 }
 
 function statusBadge(s) {
-  const label = s === 'draft' ? 'Nháp' : s === 'scheduled' ? 'Đã lên lịch' : 'Đã đăng';
+  const label = s === 'draft' ? 'Nháp' : s === 'scheduled' ? 'Đã lên lịch' : s === 'paused' ? 'Tạm dừng' : 'Đã đăng';
   return `<span class="status-badge status-${s}">${label}</span>`;
 }
 
@@ -138,11 +195,12 @@ function render() {
       </div>
     </div>
 
-    ${novel ? renderUploadCard() + renderDetectedCard() + renderScheduleCard() + renderEditCard() + renderExistingCard() : `<div class="card"><div class="empty">Chưa có truyện nào — tạo truyện trước ở trang "Truyện".</div></div>`}
+    ${novel ? renderUploadCard() + renderScheduleControlCard() + renderDetectedCard() + renderScheduleCard() + renderEditCard() + renderExistingCard() : `<div class="card"><div class="empty">Chưa có truyện nào — tạo truyện trước ở trang "Truyện".</div></div>`}
   `);
 
   document.getElementById('novelSelect').addEventListener('change', async (e) => {
     selectedNovelId = e.target.value;
+    resumeCfg = null;
     DETECTED = [];
     selectedChapterIds.clear();
     volumeFilterDelete = '';
@@ -164,6 +222,67 @@ function renderUploadCard() {
         <small>Dòng đầu tiên mỗi file được dùng làm tên chương, phần còn lại là nội dung.</small>
         <input type="file" id="fileInput" accept=".docx" multiple style="display:none"/>
       </div>
+    </div>`;
+}
+
+function renderScheduleControlCard() {
+  const paused = EXISTING.filter(c => c.status === 'paused').sort(byChapterNo);
+  const scheduled = EXISTING.filter(c => c.status === 'scheduled' && c.scheduled_at)
+    .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+  if (!paused.length && !scheduled.length) return '';
+
+  if (!paused.length) {
+    const next = scheduled[0];
+    return `
+      <div class="card">
+        <h2>Lịch đăng đang chạy</h2>
+        <p class="hint" style="margin-bottom:12px">
+          ${scheduled.length} chương đang chờ đăng. Chương kế tiếp: <b>#${next.chapter_number}</b> lúc <span class="mono">${fmtDate(next.scheduled_at)}</span>.
+          Khi bấm tạm dừng, các chương này sẽ ngừng đăng; lúc khởi động lại, lịch được tính lại từ thời điểm đó.
+        </p>
+        <button class="btn btn-gold" id="pauseScheduleBtn">⏸ Tạm dừng lịch đăng</button>
+      </div>`;
+  }
+
+  if (!resumeCfg) {
+    resumeCfg = loadScheduleCfg() || inferScheduleCfg(paused) ||
+      { days: [...scheduleDays], time: '17:00', timezone: 'Asia/Bangkok', perSlot: 1 };
+  }
+  const cfg = resumeCfg;
+  const first = cfg.days.length ? computeSlotTimes(1, cfg)[0] : null;
+  return `
+    <div class="card" style="border-left:3px solid var(--gold, #c9a227)">
+      <h2>Lịch đăng đang tạm dừng</h2>
+      <p class="hint" style="margin-bottom:14px">
+        ${paused.length} chương đang tạm dừng (từ #${paused[0].chapter_number} đến #${paused[paused.length - 1].chapter_number}) sẽ không tự đăng.
+        Khi khởi động lại, lịch được tính lại từ bây giờ theo các ngày/giờ bên dưới.
+      </p>
+      <div class="grid-2">
+        <div class="field">
+          <label>Các ngày đăng trong tuần</label>
+          <div class="checkbox-row">
+            ${DAY_LABELS.map((l, i) => `<span class="chip-toggle resume-day-chip ${cfg.days.includes(i) ? 'active' : ''}" data-rday="${i}">${l}</span>`).join('')}
+          </div>
+        </div>
+        <div class="field">
+          <label>Giờ đăng</label>
+          <input type="time" id="resumeTime" value="${cfg.time}"/>
+        </div>
+        <div class="field">
+          <label>Múi giờ</label>
+          <select id="resumeTz">
+            ${Object.keys(TZ_OFFSET).map(z => `<option value="${z}" ${z === cfg.timezone ? 'selected' : ''}>${z}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Số chương / mỗi lần đăng</label>
+          <input type="number" id="resumePerSlot" value="${cfg.perSlot}" min="1"/>
+        </div>
+      </div>
+      <p class="hint" style="margin:10px 0 14px">
+        ${first ? `Chương #${paused[0].chapter_number} sẽ đăng đầu tiên vào <b class="mono">${fmtDate(first)}</b>.` : 'Hãy chọn ít nhất 1 ngày trong tuần.'}
+      </p>
+      <button class="btn btn-gold" id="resumeScheduleBtn" ${first ? '' : 'disabled'}>▶ Khởi động lại lịch đăng</button>
     </div>`;
 }
 
@@ -242,6 +361,7 @@ function renderScheduleCard() {
           </div>
         </div>
         <p class="hint">Ví dụ: chọn T3–T6, giờ 17:06 ⇒ mỗi Thứ 3, 4, 5, 6 sẽ tự động đăng 1 chương, giống lịch của Inkitt.</p>
+        ${EXISTING.some(c => c.status === 'paused') ? `<p class="hint" style="color:var(--danger,#c0392b)">Truyện này đang tạm dừng lịch đăng — chương mới lên lịch ở đây sẽ vẫn tự đăng bình thường. Nếu muốn đăng cùng lịch đã dừng, hãy khởi động lại lịch trước.</p>` : ''}
       ` : ''}
 
       <div style="margin-top:16px">
@@ -328,7 +448,7 @@ function renderExistingCard() {
                 <td style="color:var(--muted);font-size:12.5px">${c.volume ? escHtml(c.volume) : '—'}</td>
                 <td>${statusBadge(c.status)}</td>
                 <td class="mono" style="color:var(--muted);font-size:12.5px">
-                  ${c.status === 'published' ? fmtDate(c.published_at) : c.status === 'scheduled' ? fmtDate(c.scheduled_at) : '—'}
+                  ${c.status === 'published' ? fmtDate(c.published_at) : c.status === 'scheduled' ? fmtDate(c.scheduled_at) : c.status === 'paused' ? 'Chờ khởi động lại' : '—'}
                 </td>
                 <td style="text-align:right;white-space:nowrap">
                   ${c.status !== 'published' ? `<button class="btn btn-sm" data-publish="${c.id}">Đăng ngay</button>` : `<button class="btn btn-sm" data-unpublish="${c.id}">Gỡ đăng</button>`}
@@ -403,6 +523,25 @@ function bindInteractivity() {
 
   const submitBtn = document.getElementById('submitBtn');
   if (submitBtn) submitBtn.addEventListener('click', submitBulk);
+
+  // ── Tạm dừng / khởi động lại lịch đăng ──
+  const pauseBtn = document.getElementById('pauseScheduleBtn');
+  if (pauseBtn) pauseBtn.addEventListener('click', pauseSchedule);
+  const resumeBtn = document.getElementById('resumeScheduleBtn');
+  if (resumeBtn) resumeBtn.addEventListener('click', resumeSchedule);
+  document.querySelectorAll('.resume-day-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const d = +chip.dataset.rday;
+      resumeCfg.days = resumeCfg.days.includes(d) ? resumeCfg.days.filter(x => x !== d) : [...resumeCfg.days, d].sort();
+      render();
+    });
+  });
+  const rTime = document.getElementById('resumeTime');
+  if (rTime) rTime.addEventListener('change', e => { resumeCfg.time = e.target.value || '17:00'; render(); });
+  const rTz = document.getElementById('resumeTz');
+  if (rTz) rTz.addEventListener('change', e => { resumeCfg.timezone = e.target.value; render(); });
+  const rPer = document.getElementById('resumePerSlot');
+  if (rPer) rPer.addEventListener('change', e => { resumeCfg.perSlot = Math.max(1, parseInt(e.target.value || '1', 10)); render(); });
 
   document.querySelectorAll('[data-publish]').forEach(b => b.addEventListener('click', () => setChapterStatus(b.dataset.publish, 'published')));
   document.querySelectorAll('[data-unpublish]').forEach(b => b.addEventListener('click', () => setChapterStatus(b.dataset.unpublish, 'draft')));
@@ -495,6 +634,14 @@ async function submitBulk() {
       chaptersPerSlot: parseInt(document.getElementById('chaptersPerSlot').value || '1', 10),
       startFrom: document.getElementById('startFrom').value,
     };
+    // Nhớ cấu hình lịch để dùng lại khi tạm dừng → khởi động lại
+    saveScheduleCfg({
+      days: [...scheduleDays].sort(),
+      time: body.schedule.timeOfDay,
+      timezone: body.schedule.timezone,
+      perSlot: body.schedule.chaptersPerSlot,
+    });
+    resumeCfg = null;
   }
 
   const btn = document.getElementById('submitBtn');
@@ -508,6 +655,52 @@ async function submitBulk() {
   } catch (e) {
     toast('Lỗi: ' + e.message, 'err');
     btn.disabled = false;
+  }
+}
+
+/* ─── Tạm dừng: mọi chương 'scheduled' của truyện → 'paused' ─── */
+async function pauseSchedule() {
+  const list = EXISTING.filter(c => c.status === 'scheduled');
+  if (!list.length) return;
+  if (!confirm(`Tạm dừng lịch đăng? ${list.length} chương đang chờ sẽ ngừng tự đăng cho tới khi bạn khởi động lại.`)) return;
+  // Nếu chưa có cấu hình lưu sẵn thì ghi nhớ lại từ lịch hiện tại, vì lúc khởi động lại mốc cũ sẽ bị tính mới
+  if (!loadScheduleCfg()) {
+    const inferred = inferScheduleCfg(list);
+    if (inferred) saveScheduleCfg(inferred);
+  }
+  try {
+    const { paused } = await api('/api/chapters-schedule', {
+      method: 'POST',
+      body: { novel_id: selectedNovelId, action: 'pause' },
+    });
+    toast(`Đã tạm dừng ${paused ?? list.length} chương`, 'ok');
+    resumeCfg = null;
+    await loadExisting(); render();
+  } catch (e) { toast('Lỗi: ' + e.message, 'err'); }
+}
+
+/* ─── Khởi động lại: tính lại mốc đăng từ bây giờ, chương nhỏ số đăng trước ─── */
+async function resumeSchedule() {
+  const list = EXISTING.filter(c => c.status === 'paused').sort(byChapterNo);
+  if (!list.length || !resumeCfg) return;
+  if (!resumeCfg.days.length) { toast('Chọn ít nhất 1 ngày trong tuần', 'err'); return; }
+  const times = computeSlotTimes(list.length, resumeCfg);
+  const items = list.map((c, i) => ({ id: c.id, scheduled_at: times[i] }));
+
+  const btn = document.getElementById('resumeScheduleBtn');
+  btn.disabled = true; btn.textContent = 'Đang khởi động lại...';
+  try {
+    const { resumed } = await api('/api/chapters-schedule', {
+      method: 'POST',
+      body: { novel_id: selectedNovelId, action: 'resume', items },
+    });
+    saveScheduleCfg(resumeCfg);
+    toast(`Đã khởi động lại lịch cho ${resumed ?? items.length} chương`, 'ok');
+    resumeCfg = null;
+    await loadExisting(); render();
+  } catch (e) {
+    toast('Lỗi: ' + e.message, 'err');
+    btn.disabled = false; btn.textContent = '▶ Khởi động lại lịch đăng';
   }
 }
 
