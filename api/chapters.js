@@ -50,6 +50,58 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'POST') {
     const b = req.body || {};
+
+    // Tạm dừng / khởi động lại lịch đăng của 1 truyện (dùng bởi admin/chapters.html).
+    // Gộp vào đây thay vì tạo file api/ riêng để không vượt giới hạn 12 Serverless Functions.
+    if (b.action === 'pause' || b.action === 'resume') {
+      if (!b.novel_id || typeof b.novel_id !== 'string') {
+        return res.status(400).json({ ok: false, reason: 'missing_novel_id' });
+      }
+
+      if (b.action === 'pause') {
+        // Mọi chương đang 'scheduled' → 'paused'. Giữ nguyên scheduled_at cũ làm tham chiếu.
+        const { data, error } = await db.from('chapters')
+          .update({ status: 'paused' })
+          .eq('novel_id', b.novel_id)
+          .eq('status', 'scheduled')
+          .select('id');
+        if (error) return res.status(500).json({ ok: false, reason: error.message });
+        return res.status(200).json({ ok: true, paused: data.length });
+      }
+
+      // resume: client đã tính sẵn mốc đăng mới cho từng chương.
+      const items = b.items;
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ ok: false, reason: 'missing_items' });
+      }
+      if (items.length > 1000) return res.status(400).json({ ok: false, reason: 'too_many_items' });
+      for (const it of items) {
+        if (!it || typeof it.id !== 'string' || !it.scheduled_at || isNaN(new Date(it.scheduled_at).getTime())) {
+          return res.status(400).json({ ok: false, reason: 'invalid_items' });
+        }
+      }
+
+      // Chỉ chương của truyện này và đang 'paused' mới được khởi động lại.
+      // Chia lô nhỏ để không bắn hàng trăm request cùng lúc.
+      let resumed = 0;
+      for (let i = 0; i < items.length; i += 20) {
+        const batch = items.slice(i, i + 20);
+        const results = await Promise.all(batch.map((it) =>
+          db.from('chapters')
+            .update({ status: 'scheduled', scheduled_at: new Date(it.scheduled_at).toISOString() })
+            .eq('id', it.id)
+            .eq('novel_id', b.novel_id)
+            .eq('status', 'paused')
+            .select('id')
+        ));
+        for (const r of results) {
+          if (r.error) return res.status(500).json({ ok: false, reason: r.error.message, resumed });
+          resumed += (r.data || []).length;
+        }
+      }
+      return res.status(200).json({ ok: true, resumed });
+    }
+
     if (!b.novel_id || !b.title) return res.status(400).json({ ok: false, reason: 'missing_fields' });
 
     let chapterNumber = b.chapter_number;
