@@ -669,7 +669,7 @@ async function pauseSchedule() {
     if (inferred) saveScheduleCfg(inferred);
   }
   try {
-    const { paused } = await api('/api/chapters-schedule', {
+    const { paused } = await api('/api/chapters', {
       method: 'POST',
       body: { novel_id: selectedNovelId, action: 'pause' },
     });
@@ -690,7 +690,7 @@ async function resumeSchedule() {
   const btn = document.getElementById('resumeScheduleBtn');
   btn.disabled = true; btn.textContent = 'Đang khởi động lại...';
   try {
-    const { resumed } = await api('/api/chapters-schedule', {
+    const { resumed } = await api('/api/chapters', {
       method: 'POST',
       body: { novel_id: selectedNovelId, action: 'resume', items },
     });
